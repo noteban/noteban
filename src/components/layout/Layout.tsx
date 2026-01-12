@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
+import { SettingsModal } from './SettingsModal';
 import './Layout.css';
 
 interface LayoutProps {
@@ -19,6 +20,7 @@ export function Layout({ children }: LayoutProps) {
         </main>
       </div>
       <StatusBar />
+      <SettingsModal />
     </div>
   );
 }

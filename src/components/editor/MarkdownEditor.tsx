@@ -8,6 +8,7 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import { useNotesStore, useSettingsStore } from '../../stores';
 import { useDebounce } from '../../hooks/useDebounce';
+import { checkboxPlugin, checkboxTheme } from './checkboxPlugin';
 import './MarkdownEditor.css';
 
 // Catppuccin Mocha theme for CodeMirror
@@ -135,6 +136,8 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
     catppuccinMochaTheme,
     syntaxHighlighting(catppuccinHighlighting),
     EditorView.lineWrapping,
+    checkboxPlugin,
+    checkboxTheme,
     EditorView.theme({
       '.cm-content': {
         fontSize: `${settings.editorFontSize}px`,

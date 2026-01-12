@@ -1,8 +1,16 @@
+import { useMemo } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { Calendar, Tag } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Note } from '../../types/note';
+import { useNotesStore } from '../../stores';
 import './KanbanCard.css';
+
+interface Task {
+  text: string;
+  checked: boolean;
+  index: number;
+}
 
 interface KanbanCardProps {
   note: Note;
@@ -11,6 +19,7 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ note, isDragging, onClick }: KanbanCardProps) {
+  const { updateNote } = useNotesStore();
   const {
     attributes,
     listeners,
@@ -24,7 +33,66 @@ export function KanbanCard({ note, isDragging, onClick }: KanbanCardProps) {
     opacity: isCurrentlyDragging ? 0.5 : 1,
   };
 
-  const preview = note.content.slice(0, 100).replace(/[#*_\[\]]/g, '').trim();
+  // Parse tasks from content
+  const tasks = useMemo(() => {
+    const taskRegex = /^[\s]*[-*]\s*\[([ xX])\]\s*(.+)$/gm;
+    const found: Task[] = [];
+    let match;
+
+    while ((match = taskRegex.exec(note.content)) !== null) {
+      found.push({
+        checked: match[1].toLowerCase() === 'x',
+        text: match[2].trim(),
+        index: match.index,
+      });
+    }
+
+    return found.slice(0, 5); // Show max 5 tasks
+  }, [note.content]);
+
+  // Get preview text (excluding task lines)
+  const preview = useMemo(() => {
+    if (tasks.length > 0) return null; // Don't show preview if we have tasks
+    return note.content
+      .split('\n')
+      .filter(line => !line.match(/^[\s]*[-*]\s*\[[ xX]\]/))
+      .join(' ')
+      .slice(0, 80)
+      .replace(/[#*_\[\]]/g, '')
+      .trim();
+  }, [note.content, tasks.length]);
+
+  const handleCheckboxChange = async (task: Task, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Find and replace the checkbox in content
+    const lines = note.content.split('\n');
+    let charCount = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (charCount <= task.index && task.index < charCount + line.length + 1) {
+        // This is the line with the task
+        const newLine = task.checked
+          ? line.replace(/\[x\]/i, '[ ]')
+          : line.replace(/\[ \]/, '[x]');
+        lines[i] = newLine;
+        break;
+      }
+      charCount += line.length + 1; // +1 for newline
+    }
+
+    const newContent = lines.join('\n');
+
+    try {
+      await updateNote({
+        file_path: note.file_path,
+        content: newContent,
+      });
+    } catch (error) {
+      console.error('Failed to update task:', error);
+    }
+  };
 
   return (
     <div
@@ -37,9 +105,26 @@ export function KanbanCard({ note, isDragging, onClick }: KanbanCardProps) {
     >
       <h4 className="kanban-card-title">{note.frontmatter.title}</h4>
 
-      {preview && (
+      {tasks.length > 0 ? (
+        <div className="kanban-card-tasks">
+          {tasks.map((task, i) => (
+            <label
+              key={i}
+              className={`kanban-card-task ${task.checked ? 'checked' : ''}`}
+              onClick={(e) => handleCheckboxChange(task, e)}
+            >
+              <input
+                type="checkbox"
+                checked={task.checked}
+                readOnly
+              />
+              <span>{task.text}</span>
+            </label>
+          ))}
+        </div>
+      ) : preview ? (
         <p className="kanban-card-preview">{preview}...</p>
-      )}
+      ) : null}
 
       <div className="kanban-card-footer">
         {note.frontmatter.date && (

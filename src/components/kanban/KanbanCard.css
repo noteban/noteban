@@ -63,3 +63,44 @@
 .kanban-card-tags {
   color: var(--ctp-peach);
 }
+
+.kanban-card-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-sm);
+}
+
+.kanban-card-task {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 0;
+}
+
+.kanban-card-task:hover {
+  color: var(--text-primary);
+}
+
+.kanban-card-task.checked span {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.kanban-card-task input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.kanban-card-task span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

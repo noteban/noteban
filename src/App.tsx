@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
+import { watchImmediate } from '@tauri-apps/plugin-fs';
+import type { UnwatchFn } from '@tauri-apps/plugin-fs';
 import { Layout } from './components/layout';
 import { MarkdownEditor } from './components/editor';
 import { KanbanBoard } from './components/kanban';
@@ -13,11 +15,57 @@ function App() {
   const { settings, setNotesDirectory } = useSettingsStore();
   const { currentView } = useUIStore();
   const [isSelectingFolder, setIsSelectingFolder] = useState(false);
+  const debounceTimerRef = useRef<number | null>(null);
 
+  // Load notes when directory changes
   useEffect(() => {
     if (settings.notesDirectory) {
       loadNotes(settings.notesDirectory);
     }
+  }, [settings.notesDirectory, loadNotes]);
+
+  // Watch for external file changes
+  useEffect(() => {
+    if (!settings.notesDirectory) return;
+
+    let unwatch: UnwatchFn | null = null;
+
+    const startWatching = async () => {
+      try {
+        console.log('Starting file watcher for:', settings.notesDirectory);
+        unwatch = await watchImmediate(settings.notesDirectory, (event) => {
+          console.log('File change detected:', event.type, event.paths);
+
+          // Only reload for relevant file events
+          const isRelevant = event.paths.some(p => p.endsWith('.md'));
+          if (!isRelevant) {
+            console.log('Ignoring non-md file change');
+            return;
+          }
+
+          // Debounce to avoid rapid reloads during sync
+          if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+          }
+          debounceTimerRef.current = window.setTimeout(() => {
+            console.log('Reloading notes...');
+            loadNotes(settings.notesDirectory);
+          }, 500);
+        }, { recursive: true });
+        console.log('File watcher started successfully');
+      } catch (error) {
+        console.error('Failed to watch directory:', error);
+      }
+    };
+
+    startWatching();
+
+    return () => {
+      if (unwatch) unwatch();
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
   }, [settings.notesDirectory, loadNotes]);
 
   const handleSelectFolder = async () => {

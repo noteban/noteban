@@ -1,0 +1,13 @@
+.kanban-board {
+  height: 100%;
+  padding: var(--spacing-lg);
+  overflow: hidden;
+}
+
+.kanban-columns {
+  display: flex;
+  gap: var(--spacing-md);
+  height: 100%;
+  overflow-x: auto;
+  padding-bottom: var(--spacing-md);
+}

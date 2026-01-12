@@ -86,3 +86,7 @@
   background-color: var(--ctp-surface0);
   color: var(--accent);
 }
+
+.hidden {
+  display: none;
+}

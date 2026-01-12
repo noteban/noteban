@@ -1,4 +1,4 @@
-import { Search, Kanban, FileText, Settings } from 'lucide-react';
+import { Search, Kanban, FileText, Settings, X } from 'lucide-react';
 import { useUIStore } from '../../stores';
 import './Header.css';
 
@@ -21,6 +21,14 @@ export function Header() {
             onChange={(e) => setSearchQuery(e.target.value)}
             className="header-search-input"
           />
+          <button 
+            className={`header-search-clear ${searchQuery ? '' : 'hidden'}`} 
+            onClick={() => setSearchQuery('')}
+            title="Clear search"
+            disabled={!searchQuery}
+          >
+            <X size={16} className="header-search-clear-icon" />
+          </button>
         </div>
       </div>
 

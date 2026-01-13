@@ -83,3 +83,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+.folder-note-rename-input {
+  flex: 1;
+  padding: 2px 4px;
+  font-size: var(--font-size-sm);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  outline: none;
+}

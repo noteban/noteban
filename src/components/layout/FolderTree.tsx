@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   ChevronRight,
   ChevronDown,
@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useFolderStore, useNotesStore, useSettingsStore, useUIStore } from '../../stores';
 import { FolderContextMenu } from './FolderContextMenu';
+import { ContextMenu } from './ContextMenu';
 import { extractTags } from '../../utils/tagParser';
 import type { Folder as FolderType } from '../../types/folder';
 import type { Note } from '../../types/note';
@@ -22,11 +23,20 @@ interface FolderNodeProps {
 function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
   const { folders, expandedFolders, toggleFolder, selectedFolder, selectFolder } =
     useFolderStore();
-  const { notes, activeNoteId, setActiveNote } = useNotesStore();
+  const { notes, activeNoteId, setActiveNote, deleteNote, updateNote } = useNotesStore();
   const { filterTag, searchQuery } = useUIStore();
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(
-    null
-  );
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [noteContextMenu, setNoteContextMenu] = useState<{ note: Note; x: number; y: number } | null>(null);
+  const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  const renameInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (renamingNoteId && renameInputRef.current) {
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renamingNoteId]);
 
   const relativePath = folder?.relative_path ?? '';
   const isExpanded = relativePath === '' || expandedFolders.has(relativePath);
@@ -93,6 +103,53 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
 
   const handleNoteClick = (note: Note) => {
     setActiveNote(note.frontmatter.id);
+  };
+
+  const handleNoteContextMenu = (e: React.MouseEvent, note: Note) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setNoteContextMenu({ note, x: e.clientX, y: e.clientY });
+  };
+
+  const handleNoteDelete = async () => {
+    if (!noteContextMenu) return;
+    try {
+      await deleteNote(noteContextMenu.note.file_path);
+    } catch (error) {
+      console.error('Failed to delete note:', error);
+    }
+    setNoteContextMenu(null);
+  };
+
+  const handleNoteStartRename = () => {
+    if (!noteContextMenu) return;
+    setRenamingNoteId(noteContextMenu.note.frontmatter.id);
+    setRenameValue(noteContextMenu.note.frontmatter.title);
+    setNoteContextMenu(null);
+  };
+
+  const handleRenameSubmit = async (note: Note) => {
+    if (renameValue.trim() && renameValue !== note.frontmatter.title) {
+      try {
+        await updateNote({
+          file_path: note.file_path,
+          title: renameValue.trim(),
+        });
+      } catch (error) {
+        console.error('Failed to rename note:', error);
+      }
+    }
+    setRenamingNoteId(null);
+    setRenameValue('');
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent, note: Note) => {
+    if (e.key === 'Enter') {
+      handleRenameSubmit(note);
+    } else if (e.key === 'Escape') {
+      setRenamingNoteId(null);
+      setRenameValue('');
+    }
   };
 
   const handleNoteDragStart = (e: React.DragEvent, note: Note) => {
@@ -162,11 +219,25 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
               }`}
               style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }}
               onClick={() => handleNoteClick(note)}
-              draggable
+              onContextMenu={(e) => handleNoteContextMenu(e, note)}
+              draggable={renamingNoteId !== note.frontmatter.id}
               onDragStart={(e) => handleNoteDragStart(e, note)}
             >
               <FileText size={14} />
-              <span className="folder-note-title">{note.frontmatter.title}</span>
+              {renamingNoteId === note.frontmatter.id ? (
+                <input
+                  ref={renameInputRef}
+                  type="text"
+                  className="folder-note-rename-input"
+                  value={renameValue}
+                  onChange={(e) => setRenameValue(e.target.value)}
+                  onKeyDown={(e) => handleRenameKeyDown(e, note)}
+                  onBlur={() => handleRenameSubmit(note)}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ) : (
+                <span className="folder-note-title">{note.frontmatter.title}</span>
+              )}
             </div>
           ))}
         </div>
@@ -178,6 +249,16 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+
+      {noteContextMenu && (
+        <ContextMenu
+          x={noteContextMenu.x}
+          y={noteContextMenu.y}
+          onClose={() => setNoteContextMenu(null)}
+          onDelete={handleNoteDelete}
+          onRename={handleNoteStartRename}
         />
       )}
     </div>

@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
+import type { ReactCodeMirrorRef } from '@uiw/react-codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import { EditorView } from '@codemirror/view';
@@ -104,6 +105,7 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
   const { notes, activeNoteId, updateNote } = useNotesStore();
   const { settings } = useSettingsStore();
   const { setFilterTag } = useUIStore();
+  const editorRef = useRef<ReactCodeMirrorRef>(null);
 
   // Listen for tag clicks from the editor plugin
   useEffect(() => {
@@ -114,6 +116,13 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
     window.addEventListener('tag-click', handleTagClick as EventListener);
     return () => window.removeEventListener('tag-click', handleTagClick as EventListener);
   }, [setFilterTag]);
+
+  // Focus editor when active note changes
+  useEffect(() => {
+    if (activeNoteId && editorRef.current?.view) {
+      editorRef.current.view.focus();
+    }
+  }, [activeNoteId]);
 
   const activeNote = useMemo(
     () => notes.find(n => n.frontmatter.id === activeNoteId),
@@ -195,6 +204,7 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
   return (
     <div className={`markdown-editor ${className || ''}`}>
       <CodeMirror
+        ref={editorRef}
         value={activeNote.content}
         extensions={extensions}
         onChange={handleChange}

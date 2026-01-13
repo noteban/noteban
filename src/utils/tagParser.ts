@@ -9,6 +9,9 @@ const HASHTAG_REGEX = /(?:^|[^a-zA-Z0-9])#([a-zA-Z][a-zA-Z0-9_-]*)/g;
  * Skips frontmatter and code blocks.
  */
 export function extractTags(content: string): string[] {
+  // Reset regex state (important for global regex reuse)
+  HASHTAG_REGEX.lastIndex = 0;
+
   // Remove frontmatter section (between ---)
   let cleanContent = content.replace(/^---[\s\S]*?---\n?/, '');
 

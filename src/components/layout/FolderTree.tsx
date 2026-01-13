@@ -6,8 +6,9 @@ import {
   FolderOpen,
   FileText,
 } from 'lucide-react';
-import { useFolderStore, useNotesStore, useSettingsStore } from '../../stores';
+import { useFolderStore, useNotesStore, useSettingsStore, useUIStore } from '../../stores';
 import { FolderContextMenu } from './FolderContextMenu';
+import { extractTags } from '../../utils/tagParser';
 import type { Folder as FolderType } from '../../types/folder';
 import type { Note } from '../../types/note';
 import './FolderTree.css';
@@ -22,6 +23,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
   const { folders, expandedFolders, toggleFolder, selectedFolder, selectFolder } =
     useFolderStore();
   const { notes, activeNoteId, setActiveNote } = useNotesStore();
+  const { filterTag, searchQuery } = useUIStore();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(
     null
   );
@@ -30,14 +32,37 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
   const isExpanded = relativePath === '' || expandedFolders.has(relativePath);
   const isSelected = selectedFolder === (relativePath || null);
 
-  // Get notes in this folder (not recursive)
+  // Get notes in this folder (not recursive), filtered by tag and search query
   const folderNotes = useMemo(() => {
-    return notes.filter((note) => {
+    let filtered = notes.filter((note) => {
       const noteDir = note.file_path.substring(0, note.file_path.lastIndexOf('/'));
       const expectedDir = relativePath ? `${notesDir}/${relativePath}` : notesDir;
       return noteDir === expectedDir;
     });
-  }, [notes, notesDir, relativePath]);
+
+    // Apply tag filter
+    if (filterTag) {
+      filtered = filtered.filter((note) => {
+        const noteTags = extractTags(note.content);
+        return noteTags.includes(filterTag);
+      });
+    }
+
+    // Apply search query filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((note) => {
+        const noteTags = extractTags(note.content);
+        return (
+          note.frontmatter.title.toLowerCase().includes(query) ||
+          note.content.toLowerCase().includes(query) ||
+          noteTags.some((tag) => tag.toLowerCase().includes(query))
+        );
+      });
+    }
+
+    return filtered;
+  }, [notes, notesDir, relativePath, filterTag, searchQuery]);
 
   // Get child folders
   const childFolders = useMemo(() => {

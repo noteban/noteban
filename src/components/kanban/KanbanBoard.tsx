@@ -12,6 +12,7 @@ import { X, Tag } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
 import { useNotesStore, useSettingsStore, useUIStore } from '../../stores';
+import { extractTags } from '../../utils/tagParser';
 import type { Note } from '../../types/note';
 import './KanbanBoard.css';
 
@@ -34,18 +35,22 @@ export function KanbanBoard() {
     let result = notes;
 
     if (filterTag) {
-      result = result.filter(note =>
-        note.frontmatter.tags.includes(filterTag)
-      );
+      result = result.filter(note => {
+        const noteTags = extractTags(note.content);
+        return noteTags.includes(filterTag);
+      });
     }
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(note =>
-        note.frontmatter.title.toLowerCase().includes(query) ||
-        note.content.toLowerCase().includes(query) ||
-        note.frontmatter.tags.some(tag => tag.toLowerCase().includes(query))
-      );
+      result = result.filter(note => {
+        const noteTags = extractTags(note.content);
+        return (
+          note.frontmatter.title.toLowerCase().includes(query) ||
+          note.content.toLowerCase().includes(query) ||
+          noteTags.some(tag => tag.toLowerCase().includes(query))
+        );
+      });
     }
 
     return result;

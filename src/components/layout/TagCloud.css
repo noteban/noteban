@@ -1,0 +1,72 @@
+.tag-cloud {
+  padding: var(--spacing-sm);
+  border-top: 1px solid var(--border-color);
+}
+
+.tag-cloud-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  padding: var(--spacing-sm);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+  text-align: left;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.tag-cloud-header:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.tag-cloud-count {
+  margin-left: auto;
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.tag-cloud-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.tag-cloud-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px var(--spacing-sm);
+  background: var(--bg-tertiary);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.tag-cloud-item:hover {
+  border-color: var(--ctp-peach);
+  color: var(--ctp-peach);
+}
+
+.tag-cloud-item.active {
+  background: var(--ctp-peach);
+  color: var(--bg-primary);
+  border-color: var(--ctp-peach);
+}
+
+.tag-cloud-item-name {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag-cloud-item-count {
+  font-size: 10px;
+  opacity: 0.7;
+}

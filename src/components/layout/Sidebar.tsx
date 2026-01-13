@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Plus, FolderPlus, X, Tag } from 'lucide-react';
 import { useNotesStore, useSettingsStore, useUIStore, useFolderStore } from '../../stores';
 import { FolderTree } from './FolderTree';
+import { TagCloud } from './TagCloud';
 import './Sidebar.css';
 
 export function Sidebar() {
@@ -102,6 +103,7 @@ export function Sidebar() {
       )}
 
       <FolderTree />
+      <TagCloud />
     </aside>
   );
 }

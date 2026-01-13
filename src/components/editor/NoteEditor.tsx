@@ -1,5 +1,4 @@
 import { MarkdownEditor } from './MarkdownEditor';
-import { TagInput } from './TagInput';
 import './NoteEditor.css';
 
 interface NoteEditorProps {
@@ -12,7 +11,6 @@ export function NoteEditor({ className }: NoteEditorProps) {
       <div className="note-editor-content">
         <MarkdownEditor />
       </div>
-      <TagInput />
     </div>
   );
 }

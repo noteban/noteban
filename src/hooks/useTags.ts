@@ -1,14 +1,19 @@
 import { useMemo } from 'react';
 import { useNotesStore } from '../stores';
+import { extractTags } from '../utils/tagParser';
 
 export function useTags() {
   const { notes } = useNotesStore();
 
   return useMemo(() => {
     const tagCounts = new Map<string, number>();
+    const tagsByNote = new Map<string, string[]>();
 
     notes.forEach(note => {
-      note.frontmatter.tags.forEach(tag => {
+      const tags = extractTags(note.content);
+      tagsByNote.set(note.frontmatter.id, tags);
+
+      tags.forEach(tag => {
         tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1);
       });
     });
@@ -22,7 +27,9 @@ export function useTags() {
       allTags,
       tagsByFrequency,
       tagCounts,
+      tagsByNote,
       getTopTags: (n: number) => tagsByFrequency.slice(0, n),
+      getNoteTags: (noteId: string) => tagsByNote.get(noteId) || [],
     };
   }, [notes]);
 }

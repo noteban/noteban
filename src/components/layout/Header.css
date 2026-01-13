@@ -29,6 +29,7 @@
 }
 
 .header-search {
+  position: relative;
   display: flex;
   align-items: center;
   width: 100%;
@@ -89,4 +90,102 @@
 
 .hidden {
   display: none;
+}
+
+/* Filter badge */
+.header-filter-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  background-color: var(--ctp-peach);
+  color: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.header-filter-badge button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin-left: 2px;
+  color: var(--bg-primary);
+  opacity: 0.7;
+  transition: opacity var(--transition-fast);
+}
+
+.header-filter-badge button:hover {
+  opacity: 1;
+}
+
+/* Keyboard shortcut hint */
+.header-search-shortcut {
+  flex-shrink: 0;
+  padding: 2px 6px;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Tag dropdown */
+.header-search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  margin-top: 4px;
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.header-search-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.header-search-dropdown-item:hover,
+.header-search-dropdown-item.selected {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.header-search-dropdown-tag {
+  flex: 1;
+  color: var(--ctp-peach);
+}
+
+.header-search-dropdown-count {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.header-search-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 2px;
+  color: var(--text-muted);
+  transition: color var(--transition-fast);
+}
+
+.header-search-clear:hover {
+  color: var(--text-primary);
 }

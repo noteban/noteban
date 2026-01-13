@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
@@ -6,9 +6,10 @@ import { EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
-import { useNotesStore, useSettingsStore } from '../../stores';
+import { useNotesStore, useSettingsStore, useUIStore } from '../../stores';
 import { useDebounce } from '../../hooks/useDebounce';
 import { checkboxPlugin, checkboxTheme } from './checkboxPlugin';
+import { tagPlugin, tagTheme } from './tagPlugin';
 import { imagePlugin } from './imagePlugin';
 import './MarkdownEditor.css';
 
@@ -102,6 +103,17 @@ interface MarkdownEditorProps {
 export function MarkdownEditor({ className }: MarkdownEditorProps) {
   const { notes, activeNoteId, updateNote } = useNotesStore();
   const { settings } = useSettingsStore();
+  const { setFilterTag } = useUIStore();
+
+  // Listen for tag clicks from the editor plugin
+  useEffect(() => {
+    const handleTagClick = (e: CustomEvent<string>) => {
+      setFilterTag(e.detail);
+    };
+
+    window.addEventListener('tag-click', handleTagClick as EventListener);
+    return () => window.removeEventListener('tag-click', handleTagClick as EventListener);
+  }, [setFilterTag]);
 
   const activeNote = useMemo(
     () => notes.find(n => n.frontmatter.id === activeNoteId),
@@ -140,6 +152,8 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
       EditorView.lineWrapping,
       checkboxPlugin,
       checkboxTheme,
+      tagPlugin,
+      tagTheme,
       EditorView.theme({
         '.cm-content': {
           fontSize: `${settings.editorFontSize}px`,

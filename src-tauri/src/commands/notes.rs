@@ -231,7 +231,7 @@ pub fn read_note(file_path: String) -> Result<Note, String> {
 }
 
 #[tauri::command]
-pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Note, String> {
+pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<NoteWithTags, String> {
     let now = Utc::now();
     let id = Uuid::new_v4().to_string();
 
@@ -286,19 +286,21 @@ pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Not
         file_path: file_path_str.clone(),
     };
 
+    // Extract inline tags for cache and return value
+    let inline_tags = extract_inline_tags(&note.content);
+
     // Update cache
     if let Some(cache) = state.cache.lock().unwrap().as_ref() {
         let hash = compute_content_hash(&file_content);
         let mtime = get_file_mtime(&file_path).unwrap_or(0);
-        let inline_tags = extract_inline_tags(&note.content);
         let _ = cache.upsert_note(&note, &hash, mtime, &inline_tags);
     }
 
-    Ok(note)
+    Ok(NoteWithTags { note, inline_tags })
 }
 
 #[tauri::command]
-pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Note, String> {
+pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<NoteWithTags, String> {
     let path = PathBuf::from(&input.file_path);
     let mut note = parse_note(&path)?;
     let mut current_path = path.clone();
@@ -392,15 +394,17 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
 
     note.file_path = current_path_str.clone();
 
+    // Extract inline tags for cache and return value
+    let inline_tags = extract_inline_tags(&note.content);
+
     // Update cache
     if let Some(cache) = state.cache.lock().unwrap().as_ref() {
         let hash = compute_content_hash(&file_content);
         let mtime = get_file_mtime(&current_path).unwrap_or(0);
-        let inline_tags = extract_inline_tags(&note.content);
         let _ = cache.upsert_note(&note, &hash, mtime, &inline_tags);
     }
 
-    Ok(note)
+    Ok(NoteWithTags { note, inline_tags })
 }
 
 #[tauri::command]

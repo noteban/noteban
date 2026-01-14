@@ -5,6 +5,7 @@ import type {
   NotesWithTagsAndFolders,
   FileChangeEvent,
   IncrementalUpdateResult,
+  NoteWithTags,
 } from '../types/folder';
 import { useFolderStore } from './folderStore';
 
@@ -123,18 +124,27 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   createNote: async (input: CreateNoteInput) => {
-    const note = await invoke<Note>('create_note', { input });
-    set(state => ({ notes: [note, ...state.notes] }));
-    return note;
+    const result = await invoke<NoteWithTags>('create_note', { input });
+    set(state => {
+      const newInlineTags = new Map(state.inlineTags);
+      newInlineTags.set(result.note.frontmatter.id, result.inline_tags);
+      return { notes: [result.note, ...state.notes], inlineTags: newInlineTags };
+    });
+    return result.note;
   },
 
   updateNote: async (input: UpdateNoteInput) => {
-    const updatedNote = await invoke<Note>('update_note', { input });
-    set(state => ({
-      notes: state.notes.map(n =>
-        n.frontmatter.id === updatedNote.frontmatter.id ? updatedNote : n
-      ),
-    }));
+    const result = await invoke<NoteWithTags>('update_note', { input });
+    set(state => {
+      const newInlineTags = new Map(state.inlineTags);
+      newInlineTags.set(result.note.frontmatter.id, result.inline_tags);
+      return {
+        notes: state.notes.map(n =>
+          n.frontmatter.id === result.note.frontmatter.id ? result.note : n
+        ),
+        inlineTags: newInlineTags,
+      };
+    });
   },
 
   deleteNote: async (filePath: string) => {

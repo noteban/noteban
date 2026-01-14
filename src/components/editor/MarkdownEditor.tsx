@@ -12,6 +12,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { checkboxPlugin, checkboxTheme } from './checkboxPlugin';
 import { tagPlugin, tagTheme } from './tagPlugin';
 import { imagePlugin } from './imagePlugin';
+import { listContinuationKeymap } from './listContinuationPlugin';
 import './MarkdownEditor.css';
 
 // Catppuccin Mocha theme for CodeMirror
@@ -155,6 +156,7 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
 
   const extensions: Extension[] = useMemo(() => {
     const exts: Extension[] = [
+      listContinuationKeymap,
       markdown({ base: markdownLanguage, codeLanguages: languages }),
       catppuccinMochaTheme,
       syntaxHighlighting(catppuccinHighlighting),

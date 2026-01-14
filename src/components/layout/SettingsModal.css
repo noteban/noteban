@@ -149,3 +149,137 @@
   color: var(--text-muted);
   text-align: right;
 }
+
+/* Profile management styles */
+.settings-profiles-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  margin-bottom: var(--spacing-md);
+}
+
+.settings-profile-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm);
+  background-color: var(--bg-tertiary);
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+  flex-wrap: wrap;
+}
+
+.settings-profile-item.active {
+  border-color: var(--accent);
+}
+
+.settings-profile-name {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  text-align: left;
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.settings-profile-name:hover {
+  color: var(--accent);
+}
+
+.settings-profile-name-input {
+  flex: 1;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: var(--font-size-sm);
+}
+
+.settings-profile-active-badge {
+  padding: 2px 6px;
+  background-color: var(--accent);
+  color: var(--bg-primary);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.settings-profile-actions {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.settings-profile-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xs);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.settings-profile-actions button:hover {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+.settings-profile-delete:hover {
+  color: var(--ctp-red) !important;
+}
+
+.settings-profile-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  width: 100%;
+  margin-top: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background-color: var(--bg-secondary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+
+.settings-profile-delete-confirm span {
+  flex: 1;
+}
+
+.settings-profile-delete-confirm button {
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+
+.settings-profile-delete-confirm button:first-of-type {
+  background-color: var(--ctp-red);
+  color: var(--bg-primary);
+}
+
+.settings-profile-delete-confirm button:last-of-type {
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.settings-profile-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  padding: var(--spacing-sm);
+  background-color: var(--bg-tertiary);
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+  transition: all var(--transition-fast);
+}
+
+.settings-profile-add:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}

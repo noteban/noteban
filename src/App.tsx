@@ -12,13 +12,31 @@ import { useUIStore } from './stores/uiStore';
 import './styles/globals.css';
 
 function App() {
-  const { loadNotes } = useNotesStore();
-  const { settings, setNotesDirectory } = useSettingsStore();
-  const { currentView } = useUIStore();
+  const { loadNotes, setActiveNote } = useNotesStore();
+  const { settings, root, setNotesDirectory } = useSettingsStore();
+  const { currentView, setView } = useUIStore();
   const [isSelectingFolder, setIsSelectingFolder] = useState(false);
   const debounceTimerRef = useRef<number | null>(null);
 
-  // Load notes when directory changes
+  // Track previous profile to detect switches
+  const prevProfileIdRef = useRef<string>(root.activeProfileId);
+
+  // Handle profile switches - clear active note and set view
+  useEffect(() => {
+    if (prevProfileIdRef.current !== root.activeProfileId) {
+      // Profile changed - clear UI state
+      setActiveNote(null);
+
+      // Set view to profile's default view
+      if (settings.defaultView !== currentView) {
+        setView(settings.defaultView);
+      }
+
+      prevProfileIdRef.current = root.activeProfileId;
+    }
+  }, [root.activeProfileId, settings.defaultView, currentView, setActiveNote, setView]);
+
+  // Load notes when directory changes (includes profile switches)
   useEffect(() => {
     if (settings.notesDirectory) {
       loadNotes(settings.notesDirectory);
@@ -94,11 +112,19 @@ function App() {
     }
   };
 
+  // Get active profile for display
+  const activeProfile = root.profiles.find(p => p.id === root.activeProfileId);
+
   if (!settings.notesDirectory) {
     return (
       <div className="app-setup">
         <div className="app-setup-content">
           <h1 className="app-setup-title">Welcome to Notes</h1>
+          {activeProfile && root.profiles.length > 1 && (
+            <p className="app-setup-profile">
+              Setting up profile: <strong>{activeProfile.name}</strong>
+            </p>
+          )}
           <p className="app-setup-description">
             Select a folder where your notes will be stored as markdown files.
           </p>

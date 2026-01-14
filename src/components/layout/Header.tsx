@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { Search, Kanban, FileText, Settings, X, Hash } from 'lucide-react';
 import { useUIStore } from '../../stores';
 import { useTags } from '../../hooks';
+import { ProfileSwitcher } from './ProfileSwitcher';
 import './Header.css';
 
 export function Header() {
@@ -139,6 +140,7 @@ export function Header() {
       </div>
 
       <div className="header-right">
+        <ProfileSwitcher />
         <button
           className={`header-view-btn ${currentView === 'notes' ? 'active' : ''}`}
           onClick={() => setView('notes')}

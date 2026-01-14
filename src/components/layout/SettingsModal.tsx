@@ -1,13 +1,27 @@
-import { useEffect, useRef } from 'react';
-import { X, FolderOpen } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { X, FolderOpen, Trash2, Edit2, Copy, Plus } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { useSettingsStore, useUIStore } from '../../stores';
 import './SettingsModal.css';
 
 export function SettingsModal() {
-  const { settings, setNotesDirectory, setEditorFontSize, setAutoSaveDelay } = useSettingsStore();
+  const {
+    settings,
+    root,
+    setNotesDirectory,
+    setEditorFontSize,
+    setAutoSaveDelay,
+    createProfile,
+    renameProfile,
+    deleteProfile,
+    switchProfile,
+  } = useSettingsStore();
   const { showSettings, setShowSettings } = useUIStore();
   const modalRef = useRef<HTMLDivElement>(null);
+
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -48,7 +62,42 @@ export function SettingsModal() {
     }
   };
 
+  const handleStartRename = (id: string, currentName: string) => {
+    setEditingProfileId(id);
+    setEditingName(currentName);
+  };
+
+  const handleSaveRename = () => {
+    if (editingProfileId && editingName.trim()) {
+      renameProfile(editingProfileId, editingName.trim());
+    }
+    setEditingProfileId(null);
+    setEditingName('');
+  };
+
+  const handleDeleteProfile = (id: string) => {
+    deleteProfile(id);
+    setShowDeleteConfirm(null);
+  };
+
+  const handleDuplicateProfile = (id: string) => {
+    const source = root.profiles.find(p => p.id === id);
+    if (source) {
+      const newId = createProfile(`${source.name} (Copy)`, id);
+      switchProfile(newId);
+    }
+  };
+
+  const handleCreateProfile = () => {
+    const name = `Profile ${root.profiles.length + 1}`;
+    const newId = createProfile(name);
+    switchProfile(newId);
+    handleStartRename(newId, name);
+  };
+
   if (!showSettings) return null;
+
+  const activeProfile = root.profiles.find(p => p.id === root.activeProfileId);
 
   return (
     <div className="settings-overlay">
@@ -65,7 +114,92 @@ export function SettingsModal() {
 
         <div className="settings-content">
           <div className="settings-section">
-            <h3>Storage</h3>
+            <h3>Profiles</h3>
+            <div className="settings-profiles-list">
+              {root.profiles.map((profile) => (
+                <div
+                  key={profile.id}
+                  className={`settings-profile-item ${
+                    profile.id === root.activeProfileId ? 'active' : ''
+                  }`}
+                >
+                  {editingProfileId === profile.id ? (
+                    <input
+                      type="text"
+                      className="settings-profile-name-input"
+                      value={editingName}
+                      onChange={(e) => setEditingName(e.target.value)}
+                      onBlur={handleSaveRename}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleSaveRename();
+                        if (e.key === 'Escape') {
+                          setEditingProfileId(null);
+                          setEditingName('');
+                        }
+                      }}
+                      autoFocus
+                    />
+                  ) : (
+                    <button
+                      className="settings-profile-name"
+                      onClick={() => switchProfile(profile.id)}
+                    >
+                      {profile.name}
+                      {profile.id === root.activeProfileId && (
+                        <span className="settings-profile-active-badge">Active</span>
+                      )}
+                    </button>
+                  )}
+
+                  <div className="settings-profile-actions">
+                    <button
+                      title="Rename"
+                      onClick={() => handleStartRename(profile.id, profile.name)}
+                    >
+                      <Edit2 size={14} />
+                    </button>
+                    <button
+                      title="Duplicate"
+                      onClick={() => handleDuplicateProfile(profile.id)}
+                    >
+                      <Copy size={14} />
+                    </button>
+                    {root.profiles.length > 1 && (
+                      <button
+                        title="Delete"
+                        className="settings-profile-delete"
+                        onClick={() => setShowDeleteConfirm(profile.id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  {showDeleteConfirm === profile.id && (
+                    <div className="settings-profile-delete-confirm">
+                      <span>Delete "{profile.name}"?</span>
+                      <button onClick={() => handleDeleteProfile(profile.id)}>
+                        Yes
+                      </button>
+                      <button onClick={() => setShowDeleteConfirm(null)}>
+                        No
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <button
+              className="settings-profile-add"
+              onClick={handleCreateProfile}
+            >
+              <Plus size={14} />
+              Add Profile
+            </button>
+          </div>
+
+          <div className="settings-section">
+            <h3>Storage {activeProfile && root.profiles.length > 1 ? `(${activeProfile.name})` : ''}</h3>
             <div className="settings-field">
               <label>Notes Directory</label>
               <div className="settings-folder-input">

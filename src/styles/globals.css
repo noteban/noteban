@@ -196,6 +196,15 @@ input:focus, textarea:focus {
   line-height: 1.6;
 }
 
+.app-setup-profile {
+  color: var(--text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.app-setup-profile strong {
+  color: var(--accent);
+}
+
 .app-setup-button {
   padding: var(--spacing-md) var(--spacing-xl);
   background-color: var(--accent);

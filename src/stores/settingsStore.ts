@@ -1,47 +1,186 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppSettings } from '../types/settings';
-import { DEFAULT_SETTINGS } from '../types/settings';
+import type { AppSettingsRoot, Profile, ProfileSettings, KanbanColumnSettings } from '../types/settings';
+import { DEFAULT_PROFILE_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
 import { DEFAULT_COLUMNS } from '../types/kanban';
+import { migrateSettings, createInitialRoot, generateProfileId } from '../utils/settingsMigration';
 
 interface SettingsState {
-  settings: AppSettings;
+  // Root state
+  root: AppSettingsRoot;
+
+  // Derived - active profile's settings for convenience
+  settings: ProfileSettings;
+
+  // Profile management
+  createProfile: (name: string, copyFromId?: string) => string;
+  renameProfile: (id: string, name: string) => void;
+  deleteProfile: (id: string) => boolean;
+  switchProfile: (id: string) => void;
+
+  // Settings updates (operate on active profile)
   setNotesDirectory: (dir: string) => void;
   setEditorFontSize: (size: number) => void;
+  setEditorFontFamily: (family: string) => void;
   setAutoSaveDelay: (delay: number) => void;
   setDefaultView: (view: 'notes' | 'kanban') => void;
+  setColumns: (columns: KanbanColumnSettings[]) => void;
+
+  // Getters
+  getActiveProfile: () => Profile | undefined;
+  getAllProfiles: () => Profile[];
 }
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
-    (set) => ({
-      settings: {
-        ...DEFAULT_SETTINGS,
-        columns: DEFAULT_COLUMNS,
-      },
+    (set, get) => {
+      // Helper to update active profile's settings
+      const updateActiveProfileSettings = (
+        updater: (settings: ProfileSettings) => ProfileSettings
+      ) => {
+        set((state) => {
+          const newSettings = updater(state.settings);
+          return {
+            root: {
+              ...state.root,
+              profiles: state.root.profiles.map((p) =>
+                p.id === state.root.activeProfileId
+                  ? { ...p, settings: newSettings }
+                  : p
+              ),
+            },
+            settings: newSettings,
+          };
+        });
+      };
 
-      setNotesDirectory: (dir) =>
-        set((state) => ({
-          settings: { ...state.settings, notesDirectory: dir },
-        })),
+      const initialRoot = createInitialRoot();
+      const initialProfile = initialRoot.profiles[0];
 
-      setEditorFontSize: (size) =>
-        set((state) => ({
-          settings: { ...state.settings, editorFontSize: size },
-        })),
+      return {
+        root: initialRoot,
+        settings: initialProfile.settings,
 
-      setAutoSaveDelay: (delay) =>
-        set((state) => ({
-          settings: { ...state.settings, autoSaveDelay: delay },
-        })),
+        createProfile: (name: string, copyFromId?: string) => {
+          const { root } = get();
+          const sourceSettings = copyFromId
+            ? root.profiles.find((p) => p.id === copyFromId)?.settings
+            : undefined;
 
-      setDefaultView: (view) =>
-        set((state) => ({
-          settings: { ...state.settings, defaultView: view },
-        })),
-    }),
+          const newProfile: Profile = {
+            id: generateProfileId(),
+            name,
+            settings: sourceSettings
+              ? { ...sourceSettings, notesDirectory: '' }
+              : { ...DEFAULT_PROFILE_SETTINGS, columns: DEFAULT_COLUMNS },
+          };
+
+          set((state) => ({
+            root: {
+              ...state.root,
+              profiles: [...state.root.profiles, newProfile],
+            },
+          }));
+
+          return newProfile.id;
+        },
+
+        renameProfile: (id: string, name: string) => {
+          set((state) => ({
+            root: {
+              ...state.root,
+              profiles: state.root.profiles.map((p) =>
+                p.id === id ? { ...p, name } : p
+              ),
+            },
+          }));
+        },
+
+        deleteProfile: (id: string) => {
+          const { root } = get();
+
+          // Cannot delete the last profile
+          if (root.profiles.length <= 1) {
+            return false;
+          }
+
+          const remainingProfiles = root.profiles.filter((p) => p.id !== id);
+
+          // Determine new active profile if deleting the active one
+          let newActiveId = root.activeProfileId;
+          if (id === root.activeProfileId) {
+            newActiveId = remainingProfiles[0].id;
+          }
+
+          const newActiveProfile = remainingProfiles.find(
+            (p) => p.id === newActiveId
+          )!;
+
+          set({
+            root: {
+              ...root,
+              activeProfileId: newActiveId,
+              profiles: remainingProfiles,
+            },
+            settings: newActiveProfile.settings,
+          });
+
+          return true;
+        },
+
+        switchProfile: (id: string) => {
+          const { root } = get();
+          const profile = root.profiles.find((p) => p.id === id);
+
+          if (!profile) return;
+
+          set({
+            root: {
+              ...root,
+              activeProfileId: id,
+            },
+            settings: profile.settings,
+          });
+        },
+
+        setNotesDirectory: (dir: string) => {
+          updateActiveProfileSettings((s) => ({ ...s, notesDirectory: dir }));
+        },
+
+        setEditorFontSize: (size: number) => {
+          updateActiveProfileSettings((s) => ({ ...s, editorFontSize: size }));
+        },
+
+        setEditorFontFamily: (family: string) => {
+          updateActiveProfileSettings((s) => ({ ...s, editorFontFamily: family }));
+        },
+
+        setAutoSaveDelay: (delay: number) => {
+          updateActiveProfileSettings((s) => ({ ...s, autoSaveDelay: delay }));
+        },
+
+        setDefaultView: (view: 'notes' | 'kanban') => {
+          updateActiveProfileSettings((s) => ({ ...s, defaultView: view }));
+        },
+
+        setColumns: (columns: KanbanColumnSettings[]) => {
+          updateActiveProfileSettings((s) => ({ ...s, columns }));
+        },
+
+        getActiveProfile: () => {
+          const { root } = get();
+          return root.profiles.find((p) => p.id === root.activeProfileId);
+        },
+
+        getAllProfiles: () => {
+          return get().root.profiles;
+        },
+      };
+    },
     {
       name: 'notes-kanban-settings',
+      version: SETTINGS_SCHEMA_VERSION,
+      migrate: migrateSettings,
     }
   )
 );

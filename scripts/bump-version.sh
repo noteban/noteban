@@ -47,6 +47,13 @@ echo -n "Updating src-tauri/Cargo.toml... "
 sed -i '' "s/^version = \"$CURRENT_VERSION\"/version = \"$VERSION\"/" "$PROJECT_ROOT/src-tauri/Cargo.toml"
 echo -e "${GREEN}done${NC}"
 
+# Update src-tauri/Cargo.lock
+echo -n "Updating src-tauri/Cargo.lock... "
+cd "$PROJECT_ROOT/src-tauri"
+cargo update --package notes-kanban --quiet 2>/dev/null
+cd "$PROJECT_ROOT"
+echo -e "${GREEN}done${NC}"
+
 # Update src-tauri/tauri.conf.json
 echo -n "Updating src-tauri/tauri.conf.json... "
 sed -i '' "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/" "$PROJECT_ROOT/src-tauri/tauri.conf.json"
@@ -63,7 +70,7 @@ echo ""
 # Git operations
 echo -e "${YELLOW}Creating git commit and tag...${NC}"
 
-git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/tauri.conf.json
+git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json
 git commit -m "Bump version to $VERSION"
 git tag -a "v$VERSION" -m "Version $VERSION"
 

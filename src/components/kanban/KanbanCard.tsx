@@ -5,7 +5,6 @@ import { format } from 'date-fns';
 import type { Note } from '../../types/note';
 import { useNotesStore, useUIStore } from '../../stores';
 import { useTags } from '../../hooks';
-import { extractTags } from '../../utils/tagParser';
 import './KanbanCard.css';
 
 interface Task {
@@ -23,7 +22,7 @@ interface KanbanCardProps {
 export function KanbanCard({ note, isDragging, onClick }: KanbanCardProps) {
   const { updateNote } = useNotesStore();
   const { setFilterTag } = useUIStore();
-  const { tagsByFrequency } = useTags();
+  const { tagsByFrequency, getNoteTags } = useTags();
   const {
     attributes,
     listeners,
@@ -68,7 +67,7 @@ export function KanbanCard({ note, isDragging, onClick }: KanbanCardProps) {
 
   // Sort note's tags by global frequency (most common first), take top 3
   const displayTags = useMemo(() => {
-    const noteTags = extractTags(note.content);
+    const noteTags = getNoteTags(note.frontmatter.id);
     if (noteTags.length === 0) return [];
 
     return [...noteTags]
@@ -80,7 +79,7 @@ export function KanbanCard({ note, isDragging, onClick }: KanbanCardProps) {
         return aRank - bRank;
       })
       .slice(0, 3);
-  }, [note.content, tagsByFrequency]);
+  }, [note.frontmatter.id, tagsByFrequency, getNoteTags]);
 
   const handleTagClick = (tag: string, e: React.MouseEvent) => {
     e.stopPropagation();

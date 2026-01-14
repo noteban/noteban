@@ -9,7 +9,7 @@ import {
 import { useFolderStore, useNotesStore, useSettingsStore, useUIStore } from '../../stores';
 import { FolderContextMenu } from './FolderContextMenu';
 import { ContextMenu } from './ContextMenu';
-import { extractTags } from '../../utils/tagParser';
+import { useTags } from '../../hooks/useTags';
 import type { Folder as FolderType } from '../../types/folder';
 import type { Note } from '../../types/note';
 import './FolderTree.css';
@@ -25,6 +25,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     useFolderStore();
   const { notes, activeNoteId, setActiveNote, deleteNote, updateNote } = useNotesStore();
   const { filterTag, searchQuery } = useUIStore();
+  const { getNoteTags } = useTags();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [noteContextMenu, setNoteContextMenu] = useState<{ note: Note; x: number; y: number } | null>(null);
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
@@ -53,7 +54,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     // Apply tag filter
     if (filterTag) {
       filtered = filtered.filter((note) => {
-        const noteTags = extractTags(note.content);
+        const noteTags = getNoteTags(note.frontmatter.id);
         return noteTags.includes(filterTag);
       });
     }
@@ -62,7 +63,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((note) => {
-        const noteTags = extractTags(note.content);
+        const noteTags = getNoteTags(note.frontmatter.id);
         return (
           note.frontmatter.title.toLowerCase().includes(query) ||
           note.content.toLowerCase().includes(query) ||
@@ -72,7 +73,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     }
 
     return filtered;
-  }, [notes, notesDir, relativePath, filterTag, searchQuery]);
+  }, [notes, notesDir, relativePath, filterTag, searchQuery, getNoteTags]);
 
   // Get child folders
   const childFolders = useMemo(() => {

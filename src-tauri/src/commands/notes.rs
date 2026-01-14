@@ -1,7 +1,13 @@
+use crate::cache::CacheDb;
+use crate::utils::{compute_content_hash, extract_inline_tags};
+use crate::AppState;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::fs;
 use std::path::PathBuf;
+use std::time::{Duration, Instant, UNIX_EPOCH};
+use tauri::State;
 use uuid::Uuid;
 use walkdir::WalkDir;
 
@@ -60,6 +66,61 @@ pub struct UpdateNoteInput {
     pub column: Option<String>,
     pub tags: Option<Vec<String>>,
     pub order: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NoteWithTags {
+    pub note: Note,
+    pub inline_tags: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotesWithTagsAndFolders {
+    pub notes: Vec<NoteWithTags>,
+    pub folders: Vec<Folder>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FileChangeEvent {
+    pub event_type: String, // "create", "modify", "remove"
+    pub file_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IncrementalUpdateResult {
+    pub updated_notes: Vec<NoteWithTags>,
+    pub removed_paths: Vec<String>,
+}
+
+/// Record a file write for self-save detection
+fn record_write(file_path: &str, state: &State<AppState>) {
+    let mut writes = state.recent_writes.lock().unwrap();
+    writes.insert(file_path.to_string(), Instant::now());
+
+    // Cleanup old entries (older than 5 seconds)
+    writes.retain(|_, time| time.elapsed() < Duration::from_secs(5));
+}
+
+/// Check if a file was recently written by us
+fn is_recent_write(file_path: &str, state: &State<AppState>) -> bool {
+    let writes = state.recent_writes.lock().unwrap();
+    if let Some(write_time) = writes.get(file_path) {
+        write_time.elapsed() < Duration::from_secs(2)
+    } else {
+        false
+    }
+}
+
+/// Get file modification time as unix timestamp
+fn get_file_mtime(path: &PathBuf) -> Result<i64, String> {
+    let metadata = fs::metadata(path).map_err(|e| format!("Failed to read metadata: {}", e))?;
+    let mtime = metadata
+        .modified()
+        .map_err(|_| "Failed to get mtime".to_string())?
+        .duration_since(UNIX_EPOCH)
+        .map_err(|_| "Invalid mtime".to_string())?
+        .as_secs() as i64;
+    Ok(mtime)
 }
 
 fn parse_note(file_path: &PathBuf) -> Result<Note, String> {
@@ -170,7 +231,7 @@ pub fn read_note(file_path: String) -> Result<Note, String> {
 }
 
 #[tauri::command]
-pub fn create_note(input: CreateNoteInput) -> Result<Note, String> {
+pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Note, String> {
     let now = Utc::now();
     let id = Uuid::new_v4().to_string();
 
@@ -181,7 +242,7 @@ pub fn create_note(input: CreateNoteInput) -> Result<Note, String> {
         modified: now,
         date: input.date,
         column: input.column.unwrap_or_else(|| "todo".to_string()),
-        tags: input.tags.unwrap_or_default(),
+        tags: input.tags.clone().unwrap_or_default(),
         order: 0,
     };
 
@@ -211,21 +272,37 @@ pub fn create_note(input: CreateNoteInput) -> Result<Note, String> {
         counter += 1;
     }
 
-    fs::write(&file_path, file_content)
+    let file_path_str = file_path.to_string_lossy().to_string();
+
+    // Record write for self-save detection
+    record_write(&file_path_str, &state);
+
+    fs::write(&file_path, &file_content)
         .map_err(|e| format!("Failed to write note: {}", e))?;
 
-    Ok(Note {
+    let note = Note {
         frontmatter,
         content,
-        file_path: file_path.to_string_lossy().to_string(),
-    })
+        file_path: file_path_str.clone(),
+    };
+
+    // Update cache
+    if let Some(cache) = state.cache.lock().unwrap().as_ref() {
+        let hash = compute_content_hash(&file_content);
+        let mtime = get_file_mtime(&file_path).unwrap_or(0);
+        let inline_tags = extract_inline_tags(&note.content);
+        let _ = cache.upsert_note(&note, &hash, mtime, &inline_tags);
+    }
+
+    Ok(note)
 }
 
 #[tauri::command]
-pub fn update_note(input: UpdateNoteInput) -> Result<Note, String> {
+pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Note, String> {
     let path = PathBuf::from(&input.file_path);
     let mut note = parse_note(&path)?;
     let mut current_path = path.clone();
+    let old_file_path = input.file_path.clone();
 
     // Check if title is changing and rename file if needed
     let title_changed = input.title.as_ref().map_or(false, |new_title| {
@@ -281,6 +358,10 @@ pub fn update_note(input: UpdateNoteInput) -> Result<Note, String> {
 
             // Only rename if the new path is different
             if new_path != path {
+                // Record both old and new paths
+                record_write(&path.to_string_lossy(), &state);
+                record_write(&new_path.to_string_lossy(), &state);
+
                 fs::rename(&path, &new_path)
                     .map_err(|e| format!("Failed to rename note: {}", e))?;
                 current_path = new_path;
@@ -291,22 +372,39 @@ pub fn update_note(input: UpdateNoteInput) -> Result<Note, String> {
                     fs::rename(&old_attachments, &new_attachments)
                         .map_err(|e| format!("Failed to rename attachments folder: {}", e))?;
                 }
+
+                // Remove old path from cache
+                if let Some(cache) = state.cache.lock().unwrap().as_ref() {
+                    let _ = cache.remove_note(&old_file_path);
+                }
             }
         }
     }
 
     let file_content = serialize_note(&note.frontmatter, &note.content);
+    let current_path_str = current_path.to_string_lossy().to_string();
 
-    fs::write(&current_path, file_content)
+    // Record write for self-save detection
+    record_write(&current_path_str, &state);
+
+    fs::write(&current_path, &file_content)
         .map_err(|e| format!("Failed to write note: {}", e))?;
 
-    note.file_path = current_path.to_string_lossy().to_string();
+    note.file_path = current_path_str.clone();
+
+    // Update cache
+    if let Some(cache) = state.cache.lock().unwrap().as_ref() {
+        let hash = compute_content_hash(&file_content);
+        let mtime = get_file_mtime(&current_path).unwrap_or(0);
+        let inline_tags = extract_inline_tags(&note.content);
+        let _ = cache.upsert_note(&note, &hash, mtime, &inline_tags);
+    }
 
     Ok(note)
 }
 
 #[tauri::command]
-pub fn delete_note(file_path: String) -> Result<(), String> {
+pub fn delete_note(file_path: String, state: State<AppState>) -> Result<(), String> {
     let path = PathBuf::from(&file_path);
 
     if !path.exists() {
@@ -322,6 +420,9 @@ pub fn delete_note(file_path: String) -> Result<(), String> {
         .parent()
         .map(|p| p.join(format!("{}.attachments", stem)));
 
+    // Record write for self-save detection
+    record_write(&file_path, &state);
+
     // Delete the note file
     fs::remove_file(&path)
         .map_err(|e| format!("Failed to delete note: {}", e))?;
@@ -332,6 +433,11 @@ pub fn delete_note(file_path: String) -> Result<(), String> {
             fs::remove_dir_all(&attach_path)
                 .map_err(|e| format!("Failed to delete attachments folder: {}", e))?;
         }
+    }
+
+    // Remove from cache
+    if let Some(cache) = state.cache.lock().unwrap().as_ref() {
+        let _ = cache.remove_note(&file_path);
     }
 
     Ok(())
@@ -407,7 +513,7 @@ pub fn delete_folder(folder_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn move_note(file_path: String, target_folder: String) -> Result<Note, String> {
+pub fn move_note(file_path: String, target_folder: String, state: State<AppState>) -> Result<Note, String> {
     let source = PathBuf::from(&file_path);
     if !source.exists() {
         return Err("Note does not exist".to_string());
@@ -441,6 +547,10 @@ pub fn move_note(file_path: String, target_folder: String) -> Result<Note, Strin
         counter += 1;
     }
 
+    // Record writes for self-save detection
+    record_write(&file_path, &state);
+    record_write(&final_dest.to_string_lossy(), &state);
+
     // Move the note file
     fs::rename(&source, &final_dest).map_err(|e| format!("Failed to move note: {}", e))?;
 
@@ -453,5 +563,216 @@ pub fn move_note(file_path: String, target_folder: String) -> Result<Note, Strin
         }
     }
 
-    parse_note(&final_dest)
+    // Remove old path from cache
+    if let Some(cache) = state.cache.lock().unwrap().as_ref() {
+        let _ = cache.remove_note(&file_path);
+    }
+
+    let note = parse_note(&final_dest)?;
+
+    // Add new path to cache
+    if let Some(cache) = state.cache.lock().unwrap().as_ref() {
+        let content = fs::read_to_string(&final_dest).unwrap_or_else(|_| note.content.clone());
+        let hash = compute_content_hash(&content);
+        let mtime = get_file_mtime(&final_dest).unwrap_or(0);
+        let inline_tags = extract_inline_tags(&note.content);
+        let _ = cache.upsert_note(&note, &hash, mtime, &inline_tags);
+    }
+
+    Ok(note)
+}
+
+#[tauri::command]
+pub fn initialize_cache(profile_id: String, state: State<AppState>) -> Result<(), String> {
+    let cache = CacheDb::new(&profile_id)?;
+
+    // Verify integrity and rebuild if corrupt
+    if !cache.verify_integrity().unwrap_or(false) {
+        log::warn!("Cache integrity check failed, invalidating...");
+        cache.invalidate_all()?;
+    }
+
+    let mut cache_lock = state.cache.lock().unwrap();
+    *cache_lock = Some(cache);
+    Ok(())
+}
+
+#[tauri::command]
+pub fn list_notes_cached(
+    notes_dir: String,
+    state: State<AppState>,
+) -> Result<NotesWithTagsAndFolders, String> {
+    let base_path = PathBuf::from(&notes_dir);
+
+    if !base_path.exists() {
+        fs::create_dir_all(&base_path)
+            .map_err(|e| format!("Failed to create notes directory: {}", e))?;
+        return Ok(NotesWithTagsAndFolders {
+            notes: vec![],
+            folders: vec![],
+        });
+    }
+
+    let cache_lock = state.cache.lock().unwrap();
+    let cache = cache_lock.as_ref();
+
+    let mut notes = Vec::new();
+    let mut folders = Vec::new();
+    let mut seen_paths = HashSet::new();
+
+    for entry in WalkDir::new(&base_path)
+        .min_depth(1)
+        .into_iter()
+        .filter_entry(|e| {
+            !e.file_name()
+                .to_str()
+                .map(|s| s.ends_with(".attachments"))
+                .unwrap_or(false)
+        })
+        .filter_map(|e| e.ok())
+    {
+        let path = entry.path();
+        let relative = path
+            .strip_prefix(&base_path)
+            .map_err(|e| format!("Failed to get relative path: {}", e))?;
+
+        if path.is_dir() {
+            folders.push(Folder {
+                path: path.to_string_lossy().to_string(),
+                name: path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default(),
+                relative_path: relative.to_string_lossy().to_string(),
+            });
+        } else if path.extension().map_or(false, |ext| ext == "md") {
+            let file_path_str = path.to_string_lossy().to_string();
+            seen_paths.insert(file_path_str.clone());
+
+            let path_buf = path.to_path_buf();
+            let mtime = get_file_mtime(&path_buf)?;
+
+            // Check cache first
+            if let Some(c) = cache {
+                if !c.needs_update(&file_path_str, mtime) {
+                    if let Ok(Some(cached)) = c.get_note(&file_path_str) {
+                        notes.push(NoteWithTags {
+                            note: cached.note,
+                            inline_tags: cached.inline_tags,
+                        });
+                        continue;
+                    }
+                }
+            }
+
+            // Parse and cache
+            match parse_note(&path_buf) {
+                Ok(note) => {
+                    let inline_tags = extract_inline_tags(&note.content);
+
+                    if let Some(c) = cache {
+                        let content =
+                            fs::read_to_string(&path_buf).unwrap_or_else(|_| note.content.clone());
+                        let hash = compute_content_hash(&content);
+                        let _ = c.upsert_note(&note, &hash, mtime, &inline_tags);
+                    }
+
+                    notes.push(NoteWithTags { note, inline_tags });
+                }
+                Err(e) => log::warn!("Skipping invalid note {:?}: {}", path, e),
+            }
+        }
+    }
+
+    // Remove stale cache entries
+    if let Some(c) = cache {
+        let _ = c.remove_notes_not_in(&seen_paths);
+    }
+
+    // Sort by modified date (newest first)
+    notes.sort_by(|a, b| b.note.frontmatter.modified.cmp(&a.note.frontmatter.modified));
+    folders.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
+
+    Ok(NotesWithTagsAndFolders { notes, folders })
+}
+
+#[tauri::command]
+pub fn process_file_changes(
+    notes_dir: String,
+    changes: Vec<FileChangeEvent>,
+    state: State<AppState>,
+) -> Result<IncrementalUpdateResult, String> {
+    let base_path = PathBuf::from(&notes_dir);
+    let cache_lock = state.cache.lock().unwrap();
+    let cache = cache_lock.as_ref();
+
+    let mut updated_notes = Vec::new();
+    let mut removed_paths = Vec::new();
+
+    for change in changes {
+        // Skip self-initiated writes
+        if is_recent_write(&change.file_path, &state) {
+            log::debug!("Skipping self-initiated change: {}", change.file_path);
+            continue;
+        }
+
+        match change.event_type.as_str() {
+            "remove" => {
+                if let Some(c) = cache {
+                    let _ = c.remove_note(&change.file_path);
+                }
+                removed_paths.push(change.file_path);
+            }
+            "create" | "modify" => {
+                let path = PathBuf::from(&change.file_path);
+
+                // Skip if not a markdown file or doesn't exist
+                if !path.exists() || !path.extension().map_or(false, |e| e == "md") {
+                    continue;
+                }
+
+                // Skip files outside notes directory
+                if !path.starts_with(&base_path) {
+                    continue;
+                }
+
+                let mtime = match get_file_mtime(&path) {
+                    Ok(m) => m,
+                    Err(_) => continue,
+                };
+
+                // Check if we need to update
+                if let Some(c) = cache {
+                    if !c.needs_update(&change.file_path, mtime) {
+                        continue;
+                    }
+                }
+
+                match parse_note(&path) {
+                    Ok(note) => {
+                        let inline_tags = extract_inline_tags(&note.content);
+
+                        if let Some(c) = cache {
+                            let content = fs::read_to_string(&path)
+                                .unwrap_or_else(|_| note.content.clone());
+                            let hash = compute_content_hash(&content);
+                            let _ = c.upsert_note(&note, &hash, mtime, &inline_tags);
+                        }
+
+                        updated_notes.push(NoteWithTags {
+                            note,
+                            inline_tags,
+                        });
+                    }
+                    Err(e) => log::warn!("Failed to parse {}: {}", change.file_path, e),
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(IncrementalUpdateResult {
+        updated_notes,
+        removed_paths,
+    })
 }

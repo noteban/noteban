@@ -12,7 +12,7 @@ import { X, Tag } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
 import { useNotesStore, useSettingsStore, useUIStore } from '../../stores';
-import { extractTags } from '../../utils/tagParser';
+import { useTags } from '../../hooks/useTags';
 import type { Note } from '../../types/note';
 import './KanbanBoard.css';
 
@@ -20,6 +20,7 @@ export function KanbanBoard() {
   const { notes, updateNote, setActiveNote } = useNotesStore();
   const { settings } = useSettingsStore();
   const { setView, filterTag, clearTagFilter, searchQuery } = useUIStore();
+  const { getNoteTags } = useTags();
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -35,26 +36,26 @@ export function KanbanBoard() {
     let result = notes;
 
     if (filterTag) {
-      result = result.filter(note => {
-        const noteTags = extractTags(note.content);
+      result = result.filter((note) => {
+        const noteTags = getNoteTags(note.frontmatter.id);
         return noteTags.includes(filterTag);
       });
     }
 
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(note => {
-        const noteTags = extractTags(note.content);
+      result = result.filter((note) => {
+        const noteTags = getNoteTags(note.frontmatter.id);
         return (
           note.frontmatter.title.toLowerCase().includes(query) ||
           note.content.toLowerCase().includes(query) ||
-          noteTags.some(tag => tag.toLowerCase().includes(query))
+          noteTags.some((tag) => tag.toLowerCase().includes(query))
         );
       });
     }
 
     return result;
-  }, [notes, filterTag, searchQuery]);
+  }, [notes, filterTag, searchQuery, getNoteTags]);
 
   // Group filtered notes by column
   const notesByColumn = useMemo(() => {

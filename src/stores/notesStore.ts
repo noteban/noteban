@@ -1,38 +1,124 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import type { Note, CreateNoteInput, UpdateNoteInput } from '../types/note';
-import type { NotesWithFolders } from '../types/folder';
+import type {
+  NotesWithTagsAndFolders,
+  FileChangeEvent,
+  IncrementalUpdateResult,
+} from '../types/folder';
 import { useFolderStore } from './folderStore';
 
 interface NotesState {
   notes: Note[];
+  inlineTags: Map<string, string[]>; // noteId -> inline tags from cache
   activeNoteId: string | null;
   isLoading: boolean;
   error: string | null;
+  cacheInitialized: boolean;
 
+  initializeCache: (profileId: string) => Promise<void>;
   loadNotes: (notesDir: string) => Promise<void>;
+  processFileChanges: (notesDir: string, changes: FileChangeEvent[]) => Promise<void>;
   createNote: (input: CreateNoteInput) => Promise<Note>;
   updateNote: (input: UpdateNoteInput) => Promise<void>;
   deleteNote: (filePath: string) => Promise<void>;
   moveNote: (filePath: string, targetFolder: string) => Promise<void>;
   setActiveNote: (id: string | null) => void;
   getActiveNote: () => Note | undefined;
+  getInlineTags: (noteId: string) => string[];
 }
 
 export const useNotesStore = create<NotesState>((set, get) => ({
   notes: [],
+  inlineTags: new Map(),
   activeNoteId: null,
   isLoading: false,
   error: null,
+  cacheInitialized: false,
+
+  initializeCache: async (profileId: string) => {
+    try {
+      await invoke('initialize_cache', { profileId });
+      set({ cacheInitialized: true });
+    } catch (error) {
+      console.error('Failed to initialize cache:', error);
+      // Continue without cache - will fall back to uncached behavior
+      set({ cacheInitialized: true });
+    }
+  },
 
   loadNotes: async (notesDir: string) => {
     set({ isLoading: true, error: null });
     try {
-      const result = await invoke<NotesWithFolders>('list_notes', { notesDir });
-      set({ notes: result.notes, isLoading: false });
+      const result = await invoke<NotesWithTagsAndFolders>('list_notes_cached', { notesDir });
+
+      const inlineTags = new Map<string, string[]>();
+      const notes = result.notes.map((nwt) => {
+        inlineTags.set(nwt.note.frontmatter.id, nwt.inline_tags);
+        return nwt.note;
+      });
+
+      set({ notes, inlineTags, isLoading: false });
       useFolderStore.getState().setFolders(result.folders);
     } catch (error) {
       set({ error: String(error), isLoading: false });
+    }
+  },
+
+  processFileChanges: async (notesDir: string, changes: FileChangeEvent[]) => {
+    if (changes.length === 0) return;
+
+    try {
+      const result = await invoke<IncrementalUpdateResult>('process_file_changes', {
+        notesDir,
+        changes,
+      });
+
+      // Skip update if nothing changed
+      if (result.updated_notes.length === 0 && result.removed_paths.length === 0) {
+        return;
+      }
+
+      set((state) => {
+        let newNotes = [...state.notes];
+        const newInlineTags = new Map(state.inlineTags);
+
+        // Remove deleted notes
+        for (const removedPath of result.removed_paths) {
+          const idx = newNotes.findIndex((n) => n.file_path === removedPath);
+          if (idx >= 0) {
+            const noteId = newNotes[idx].frontmatter.id;
+            newInlineTags.delete(noteId);
+            newNotes.splice(idx, 1);
+          }
+        }
+
+        // Update/add changed notes
+        for (const nwt of result.updated_notes) {
+          const idx = newNotes.findIndex(
+            (n) => n.frontmatter.id === nwt.note.frontmatter.id
+          );
+          if (idx >= 0) {
+            newNotes[idx] = nwt.note;
+          } else {
+            newNotes.push(nwt.note);
+          }
+          newInlineTags.set(nwt.note.frontmatter.id, nwt.inline_tags);
+        }
+
+        // Sort by modified date (newest first)
+        newNotes.sort(
+          (a, b) =>
+            new Date(b.frontmatter.modified).getTime() -
+            new Date(a.frontmatter.modified).getTime()
+        );
+
+        return { notes: newNotes, inlineTags: newInlineTags };
+      });
+    } catch (error) {
+      console.error('Failed to process file changes:', error);
+      // Fall back to full reload on error
+      get().loadNotes(notesDir);
     }
   },
 
@@ -74,6 +160,10 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
   getActiveNote: () => {
     const { notes, activeNoteId } = get();
-    return notes.find(n => n.frontmatter.id === activeNoteId);
+    return notes.find((n) => n.frontmatter.id === activeNoteId);
+  },
+
+  getInlineTags: (noteId: string) => {
+    return get().inlineTags.get(noteId) || [];
   },
 }));

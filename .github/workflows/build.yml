@@ -158,17 +158,29 @@ jobs:
         run: |
           VERSION=${{ steps.get_version.outputs.VERSION }}
 
-          # Find and read signatures
-          WIN_SIG=$(cat artifacts/windows-x64/*.exe.sig 2>/dev/null || echo "")
-          MAC_X64_SIG=$(cat artifacts/macos-x64/*_x64.app.tar.gz.sig 2>/dev/null || echo "")
-          MAC_ARM_SIG=$(cat artifacts/macos-arm64/*_aarch64.app.tar.gz.sig 2>/dev/null || echo "")
-          LINUX_SIG=$(cat artifacts/linux-x64/*.AppImage.sig 2>/dev/null || echo "")
+          # Find files first
+          MAC_X64_PATH=$(find artifacts/macos-x64 -name "*_x64.app.tar.gz" -type f 2>/dev/null | head -1)
+          MAC_ARM_PATH=$(find artifacts/macos-arm64 -name "*_aarch64.app.tar.gz" -type f 2>/dev/null | head -1)
+          LINUX_PATH=$(find artifacts/linux-x64 -name "*.AppImage" -type f 2>/dev/null | head -1)
+          WIN_PATH=$(find artifacts/windows-x64 -name "*.exe" -type f ! -name "*.sig" 2>/dev/null | head -1)
 
-          # Get actual filenames (basename only)
-          MAC_X64_FILE=$(basename artifacts/macos-x64/*_x64.app.tar.gz 2>/dev/null || echo "")
-          MAC_ARM_FILE=$(basename artifacts/macos-arm64/*_aarch64.app.tar.gz 2>/dev/null || echo "")
-          LINUX_FILE=$(basename artifacts/linux-x64/*.AppImage 2>/dev/null || echo "")
-          WIN_FILE=$(basename artifacts/windows-x64/*.exe 2>/dev/null | grep -v '.sig' | head -1 || echo "")
+          # Read signatures
+          WIN_SIG=$(cat "${WIN_PATH}.sig" 2>/dev/null || echo "")
+          MAC_X64_SIG=$(cat "${MAC_X64_PATH}.sig" 2>/dev/null || echo "")
+          MAC_ARM_SIG=$(cat "${MAC_ARM_PATH}.sig" 2>/dev/null || echo "")
+          LINUX_SIG=$(cat "${LINUX_PATH}.sig" 2>/dev/null || echo "")
+
+          # Get filenames
+          MAC_X64_FILE=$(basename "$MAC_X64_PATH" 2>/dev/null || echo "")
+          MAC_ARM_FILE=$(basename "$MAC_ARM_PATH" 2>/dev/null || echo "")
+          LINUX_FILE=$(basename "$LINUX_PATH" 2>/dev/null || echo "")
+          WIN_FILE=$(basename "$WIN_PATH" 2>/dev/null || echo "")
+
+          echo "Found files:"
+          echo "  macOS x64: $MAC_X64_FILE"
+          echo "  macOS ARM: $MAC_ARM_FILE"
+          echo "  Linux: $LINUX_FILE"
+          echo "  Windows: $WIN_FILE"
 
           cat > artifacts/latest.json << EOF
           {

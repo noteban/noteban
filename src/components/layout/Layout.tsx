@@ -3,6 +3,8 @@ import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { StatusBar } from './StatusBar';
 import { SettingsModal } from './SettingsModal';
+import { AboutModal } from './AboutModal';
+import { UpdateNotification } from './UpdateNotification';
 import './Layout.css';
 
 interface LayoutProps {
@@ -21,6 +23,8 @@ export function Layout({ children }: LayoutProps) {
       </div>
       <StatusBar />
       <SettingsModal />
+      <AboutModal />
+      <UpdateNotification />
     </div>
   );
 }

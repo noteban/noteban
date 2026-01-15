@@ -1,0 +1,119 @@
+.update-notification {
+  position: fixed;
+  bottom: 48px;
+  right: var(--spacing-md);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--ctp-green);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 90;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.update-notification-content {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.update-notification-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background-color: var(--ctp-green);
+  color: var(--bg-primary);
+  border-radius: var(--radius-sm);
+}
+
+.update-notification-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.update-notification-title {
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.update-notification-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--text-muted);
+}
+
+.update-notification-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.update-notification-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.update-notification-btn.primary {
+  background-color: var(--ctp-green);
+  color: var(--bg-primary);
+}
+
+.update-notification-btn.primary:hover {
+  filter: brightness(1.1);
+}
+
+.update-notification-btn.dismiss {
+  background: transparent;
+  color: var(--text-muted);
+  padding: var(--spacing-xs);
+}
+
+.update-notification-btn.dismiss:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.update-notification-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--ctp-green);
+  font-size: var(--font-size-sm);
+}
+
+.update-notification-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

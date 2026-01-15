@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Notes Kanban",
-  "version": "2.1.2",
+  "version": "2.2.0",
   "identifier": "dev.th3a.notes",
   "build": {
     "frontendDist": "../dist",

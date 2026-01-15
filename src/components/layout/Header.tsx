@@ -1,12 +1,12 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { Search, Kanban, FileText, Settings, X, Hash } from 'lucide-react';
+import { Search, Kanban, FileText, Settings, X, Hash, Info } from 'lucide-react';
 import { useUIStore } from '../../stores';
 import { useTags } from '../../hooks';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import './Header.css';
 
 export function Header() {
-  const { currentView, setView, searchQuery, setSearchQuery, setShowSettings, filterTag, setFilterTag, clearTagFilter } = useUIStore();
+  const { currentView, setView, searchQuery, setSearchQuery, setShowSettings, setShowAbout, filterTag, setFilterTag, clearTagFilter } = useUIStore();
   const { allTags, tagCounts } = useTags();
   const inputRef = useRef<HTMLInputElement>(null);
   const [showTagDropdown, setShowTagDropdown] = useState(false);
@@ -154,6 +154,13 @@ export function Header() {
           title="Kanban View"
         >
           <Kanban size={18} />
+        </button>
+        <button
+          className="header-settings-btn"
+          title="About"
+          onClick={() => setShowAbout(true)}
+        >
+          <Info size={18} />
         </button>
         <button
           className="header-settings-btn"

@@ -27,6 +27,14 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUwN0ZGOTg1NjY2QjZBMTgKUldRWWFtdG1oZmwvVUxqVlhmd0Jja2RaRklIWVhoTytwbHRpN0p2YVJIWEdsZW9yZ2N0ZCtxTEgK",
+      "endpoints": [
+        "https://github.com/i-doll/note-kanban/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
@@ -36,6 +44,7 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "createUpdaterArtifacts": true
   }
 }

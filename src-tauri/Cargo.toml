@@ -1,6 +1,6 @@
 [package]
 name = "notes-kanban"
-version = "2.3.0"
+version = "2.4.0"
 description = "A notes-first app with kanban organization"
 authors = ["you"]
 license = "MIT"

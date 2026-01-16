@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, FolderOpen, Trash2, Edit2, Copy, Plus } from 'lucide-react';
+import { X, FolderOpen, Trash2, Edit2, Copy, Plus, ExternalLink } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
+import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore, useUIStore } from '../../stores';
+import { setWindowTitle } from '../../utils/windowTitle';
 import './SettingsModal.css';
 
 export function SettingsModal() {
@@ -72,6 +74,10 @@ export function SettingsModal() {
   const handleSaveRename = () => {
     if (editingProfileId && editingName.trim()) {
       renameProfile(editingProfileId, editingName.trim());
+      // Update window title immediately if renaming the active profile
+      if (editingProfileId === root.activeProfileId) {
+        setWindowTitle(editingName.trim(), root.profiles.length > 1);
+      }
     }
     setEditingProfileId(null);
     setEditingName('');
@@ -95,6 +101,14 @@ export function SettingsModal() {
     const newId = createProfile(name);
     switchProfile(newId);
     handleStartRename(newId, name);
+  };
+
+  const handleOpenInNewWindow = async (profileId: string) => {
+    try {
+      await invoke('open_profile_in_new_window', { profileId });
+    } catch (error) {
+      console.error('Failed to open profile in new window:', error);
+    }
   };
 
   if (!showSettings) return null;
@@ -154,6 +168,12 @@ export function SettingsModal() {
                   )}
 
                   <div className="settings-profile-actions">
+                    <button
+                      title="Open in new window"
+                      onClick={() => handleOpenInNewWindow(profile.id)}
+                    >
+                      <ExternalLink size={14} />
+                    </button>
                     <button
                       title="Rename"
                       onClick={() => handleStartRename(profile.id, profile.name)}

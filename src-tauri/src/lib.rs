@@ -10,10 +10,30 @@ use std::time::Instant;
 pub struct AppState {
     pub cache: Mutex<Option<CacheDb>>,
     pub recent_writes: Mutex<HashMap<String, Instant>>,
+    pub initial_profile_id: Mutex<Option<String>>,
+}
+
+#[tauri::command]
+fn open_profile_in_new_window(profile_id: String) -> Result<(), String> {
+    let current_exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    std::process::Command::new(current_exe)
+        .arg(format!("--profile={}", profile_id))
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn get_initial_profile(state: tauri::State<AppState>) -> Option<String> {
+    state.initial_profile_id.lock().unwrap().clone()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Parse --profile= argument before building the app
+    let initial_profile_id: Option<String> = std::env::args()
+        .find_map(|arg| arg.strip_prefix("--profile=").map(String::from));
+
     tauri::Builder::default()
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
@@ -24,6 +44,7 @@ pub fn run() {
         .manage(AppState {
             cache: Mutex::new(None),
             recent_writes: Mutex::new(HashMap::new()),
+            initial_profile_id: Mutex::new(initial_profile_id),
         })
         .setup(|app| {
             if cfg!(debug_assertions) {
@@ -33,6 +54,7 @@ pub fn run() {
                         .build(),
                 )?;
             }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -48,6 +70,8 @@ pub fn run() {
             commands::notes::initialize_cache,
             commands::notes::list_notes_cached,
             commands::notes::process_file_changes,
+            open_profile_in_new_window,
+            get_initial_profile,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

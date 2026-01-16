@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { watchImmediate } from '@tauri-apps/plugin-fs';
 import { exit } from '@tauri-apps/plugin-process';
+import { invoke } from '@tauri-apps/api/core';
 import type { UnwatchFn } from '@tauri-apps/plugin-fs';
 import { Layout } from './components/layout';
 import { NoteEditor } from './components/editor';
@@ -11,6 +12,7 @@ import { useSettingsStore } from './stores/settingsStore';
 import { useUIStore } from './stores/uiStore';
 import type { FileChangeEvent } from './types/folder';
 import { initDebugLogging, debugLog } from './utils/debugLogger';
+import { setWindowTitle } from './utils/windowTitle';
 import './styles/globals.css';
 
 // Map Tauri watch event types to our change event types
@@ -43,6 +45,40 @@ function App() {
       initDebugLogging();
     }
   }, [root.enableDebugLogging]);
+
+  // Check for initial profile from command line argument and set window title
+  useEffect(() => {
+    const initializeWindow = async () => {
+      try {
+        const initialProfileId = await invoke<string | null>('get_initial_profile');
+        const state = useSettingsStore.getState();
+
+        if (initialProfileId && initialProfileId !== state.root.activeProfileId) {
+          // Verify the profile exists and switch to it
+          const profileExists = state.root.profiles.some(p => p.id === initialProfileId);
+          if (profileExists) {
+            state.switchProfile(initialProfileId);
+          }
+        }
+
+        // Set window title after any profile switch
+        const currentState = useSettingsStore.getState();
+        const activeProfile = currentState.root.profiles.find(
+          p => p.id === currentState.root.activeProfileId
+        );
+        setWindowTitle(activeProfile?.name ?? null, currentState.root.profiles.length > 1);
+      } catch (error) {
+        console.error('Failed to initialize window:', error);
+      }
+    };
+    initializeWindow();
+  }, []);
+
+  // Update window title when profile changes
+  useEffect(() => {
+    const activeProfile = root.profiles.find(p => p.id === root.activeProfileId);
+    setWindowTitle(activeProfile?.name ?? null, root.profiles.length > 1);
+  }, [root.activeProfileId, root.profiles]);
 
   // Handle profile switches - clear active note and set view
   useEffect(() => {

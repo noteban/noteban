@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, User, Plus, Check } from 'lucide-react';
+import { ChevronDown, User, Plus, Check, ExternalLink } from 'lucide-react';
+import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../../stores';
 import './ProfileSwitcher.css';
 
@@ -38,6 +39,16 @@ export function ProfileSwitcher() {
     setIsOpen(false);
   };
 
+  const handleOpenInNewWindow = async (e: React.MouseEvent, profileId: string) => {
+    e.stopPropagation();
+    try {
+      await invoke('open_profile_in_new_window', { profileId });
+      setIsOpen(false);
+    } catch (error) {
+      console.error('Failed to open profile in new window:', error);
+    }
+  };
+
   return (
     <div className="profile-switcher" ref={dropdownRef}>
       <button
@@ -60,20 +71,33 @@ export function ProfileSwitcher() {
         <div className="profile-switcher-dropdown" role="listbox">
           <div className="profile-switcher-list">
             {root.profiles.map((profile) => (
-              <button
+              <div
                 key={profile.id}
                 className={`profile-switcher-item ${
                   profile.id === root.activeProfileId ? 'active' : ''
                 }`}
-                onClick={() => handleSwitchProfile(profile.id)}
-                role="option"
-                aria-selected={profile.id === root.activeProfileId}
               >
-                <span className="profile-switcher-item-name">{profile.name}</span>
-                {profile.id === root.activeProfileId && (
-                  <Check size={14} className="profile-switcher-item-check" />
+                <button
+                  className="profile-switcher-item-main"
+                  onClick={() => handleSwitchProfile(profile.id)}
+                  role="option"
+                  aria-selected={profile.id === root.activeProfileId}
+                >
+                  <span className="profile-switcher-item-name">{profile.name}</span>
+                  {profile.id === root.activeProfileId && (
+                    <Check size={14} className="profile-switcher-item-check" />
+                  )}
+                </button>
+                {profile.id !== root.activeProfileId && (
+                  <button
+                    className="profile-switcher-item-external"
+                    title="Open in new window"
+                    onClick={(e) => handleOpenInNewWindow(e, profile.id)}
+                  >
+                    <ExternalLink size={14} />
+                  </button>
                 )}
-              </button>
+              </div>
             ))}
           </div>
 

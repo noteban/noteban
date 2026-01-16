@@ -65,21 +65,39 @@
 .profile-switcher-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
-  padding: var(--spacing-sm) var(--spacing-md);
-  text-align: left;
-  color: var(--text-secondary);
   border-radius: var(--radius-sm);
   transition: all var(--transition-fast);
 }
 
 .profile-switcher-item:hover {
   background-color: var(--bg-tertiary);
-  color: var(--text-primary);
+}
+
+.profile-switcher-item:hover .profile-switcher-item-external {
+  opacity: 1;
 }
 
 .profile-switcher-item.active {
+  color: var(--accent);
+}
+
+.profile-switcher-item-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 1;
+  padding: var(--spacing-sm) var(--spacing-md);
+  text-align: left;
+  color: var(--text-secondary);
+  transition: color var(--transition-fast);
+}
+
+.profile-switcher-item:hover .profile-switcher-item-main {
+  color: var(--text-primary);
+}
+
+.profile-switcher-item.active .profile-switcher-item-main {
   color: var(--accent);
 }
 
@@ -93,6 +111,23 @@
 .profile-switcher-item-check {
   flex-shrink: 0;
   color: var(--accent);
+}
+
+.profile-switcher-item-external {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  margin-right: var(--spacing-xs);
+  color: var(--text-muted);
+  opacity: 0;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.profile-switcher-item-external:hover {
+  color: var(--text-primary);
+  background-color: var(--bg-secondary);
 }
 
 .profile-switcher-divider {

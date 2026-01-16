@@ -32,6 +32,11 @@
       "allow": [{ "path": "**" }]
     },
     {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [{ "path": "**" }]
+    },
+    "fs:allow-appdata-write-recursive",
+    {
       "identifier": "fs:allow-exists",
       "allow": [{ "path": "**" }]
     },

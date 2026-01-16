@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { open } from '@tauri-apps/plugin-shell';
-import { useUpdateStore } from '../stores';
+import { useUpdateStore, useSettingsStore } from '../stores';
+import { debugLog } from '../utils/debugLogger';
 
 const isLinux = navigator.platform.toLowerCase().includes('linux');
 const GITHUB_RELEASES_URL = 'https://github.com/i-doll/note-kanban/releases/latest';
@@ -27,16 +28,19 @@ export function useUpdater() {
   } = useUpdateStore();
 
   const updateRef = useRef<Update | null>(null);
+  const disableUpdateChecks = useSettingsStore((state) => state.root.disableUpdateChecks);
 
   const checkForUpdates = useCallback(async () => {
     if (isChecking) return;
 
+    debugLog.log('Starting update check...');
     setChecking(true);
     setError(null);
 
     try {
       // Dev mode mock for testing UI
       if (import.meta.env.DEV && DEV_MOCK_UPDATE) {
+        debugLog.log('Using mock update (dev mode)');
         setUpdateAvailable({
           version: '99.0.0',
           notes: 'Test update for development',
@@ -49,6 +53,7 @@ export function useUpdater() {
       const update = await check();
 
       if (update) {
+        debugLog.log('Update available:', { version: update.version, date: update.date });
         updateRef.current = update;
         setUpdateAvailable({
           version: update.version,
@@ -56,10 +61,12 @@ export function useUpdater() {
           date: update.date || new Date().toISOString(),
         });
       } else {
+        debugLog.log('No update available, app is up to date');
         updateRef.current = null;
         setUpdateAvailable(null);
       }
     } catch (err) {
+      debugLog.error('Failed to check for updates:', err);
       console.error('Failed to check for updates:', err);
       setError(err instanceof Error ? err.message : 'Failed to check for updates');
     } finally {
@@ -117,14 +124,20 @@ export function useUpdater() {
     await open(GITHUB_RELEASES_URL);
   }, []);
 
-  // Check for updates on mount with a small delay
+  // Check for updates on mount with a small delay (unless disabled)
   useEffect(() => {
+    if (disableUpdateChecks) {
+      debugLog.log('Update checks disabled by user setting');
+      return;
+    }
+
+    debugLog.log('Scheduling automatic update check in 2 seconds...');
     const timer = setTimeout(() => {
       checkForUpdates();
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [disableUpdateChecks]);
 
   return {
     isChecking,

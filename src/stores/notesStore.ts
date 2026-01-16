@@ -8,6 +8,7 @@ import type {
   NoteWithTags,
 } from '../types/folder';
 import { useFolderStore } from './folderStore';
+import { debugLog } from '../utils/debugLogger';
 
 interface NotesState {
   notes: Note[];
@@ -38,10 +39,13 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   cacheInitialized: false,
 
   initializeCache: async (profileId: string) => {
+    debugLog.log('Initializing cache for profile:', profileId);
     try {
       await invoke('initialize_cache', { profileId });
+      debugLog.log('Cache initialized successfully');
       set({ cacheInitialized: true });
     } catch (error) {
+      debugLog.error('Failed to initialize cache:', error);
       console.error('Failed to initialize cache:', error);
       // Continue without cache - will fall back to uncached behavior
       set({ cacheInitialized: true });
@@ -49,9 +53,12 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   loadNotes: async (notesDir: string) => {
+    debugLog.log('Loading notes from directory:', notesDir);
     set({ isLoading: true, error: null });
     try {
+      const startTime = performance.now();
       const result = await invoke<NotesWithTagsAndFolders>('list_notes_cached', { notesDir });
+      const loadTime = performance.now() - startTime;
 
       const inlineTags = new Map<string, string[]>();
       const notes = result.notes.map((nwt) => {
@@ -59,15 +66,19 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         return nwt.note;
       });
 
+      debugLog.log(`Loaded ${notes.length} notes and ${result.folders.length} folders in ${loadTime.toFixed(2)}ms`);
       set({ notes, inlineTags, isLoading: false });
       useFolderStore.getState().setFolders(result.folders);
     } catch (error) {
+      debugLog.error('Failed to load notes:', error);
       set({ error: String(error), isLoading: false });
     }
   },
 
   processFileChanges: async (notesDir: string, changes: FileChangeEvent[]) => {
     if (changes.length === 0) return;
+
+    debugLog.log('Processing file changes:', changes.map(c => `${c.event_type}: ${c.file_path}`));
 
     try {
       const result = await invoke<IncrementalUpdateResult>('process_file_changes', {
@@ -77,8 +88,11 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
       // Skip update if nothing changed
       if (result.updated_notes.length === 0 && result.removed_paths.length === 0) {
+        debugLog.log('No actual changes detected after processing');
         return;
       }
+
+      debugLog.log(`File changes result: ${result.updated_notes.length} updated, ${result.removed_paths.length} removed`);
 
       set((state) => {
         let newNotes = [...state.notes];
@@ -117,6 +131,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
         return { notes: newNotes, inlineTags: newInlineTags };
       });
     } catch (error) {
+      debugLog.error('Failed to process file changes:', error);
       console.error('Failed to process file changes:', error);
       // Fall back to full reload on error
       get().loadNotes(notesDir);

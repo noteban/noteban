@@ -28,6 +28,8 @@ export type AppSettingsRoot = {
   version: number;
   activeProfileId: string;
   profiles: Profile[];
+  disableUpdateChecks: boolean;
+  enableDebugLogging: boolean;
 };
 
 // Backward compatibility alias
@@ -46,4 +48,9 @@ export const DEFAULT_PROFILE_SETTINGS: ProfileSettings = {
 // Keep for backward compatibility
 export const DEFAULT_SETTINGS = DEFAULT_PROFILE_SETTINGS;
 
-export const SETTINGS_SCHEMA_VERSION = 2;
+export const DEFAULT_APP_SETTINGS = {
+  disableUpdateChecks: false,
+  enableDebugLogging: false,
+};
+
+export const SETTINGS_SCHEMA_VERSION = 3;

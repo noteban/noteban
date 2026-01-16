@@ -10,6 +10,7 @@ import { useNotesStore } from './stores/notesStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useUIStore } from './stores/uiStore';
 import type { FileChangeEvent } from './types/folder';
+import { initDebugLogging, debugLog } from './utils/debugLogger';
 import './styles/globals.css';
 
 // Map Tauri watch event types to our change event types
@@ -35,6 +36,13 @@ function App() {
   useEffect(() => {
     initializeCache(root.activeProfileId);
   }, [root.activeProfileId, initializeCache]);
+
+  // Initialize debug logging when enabled
+  useEffect(() => {
+    if (root.enableDebugLogging) {
+      initDebugLogging();
+    }
+  }, [root.enableDebugLogging]);
 
   // Handle profile switches - clear active note and set view
   useEffect(() => {
@@ -79,6 +87,7 @@ function App() {
 
     const startWatching = async () => {
       try {
+        debugLog.log('Starting file watcher for directory:', settings.notesDirectory);
         unwatch = await watchImmediate(
           settings.notesDirectory,
           (event) => {
@@ -95,6 +104,8 @@ function App() {
               file_path: p,
             }));
 
+            debugLog.log('File watcher event:', { type: eventType, paths: mdPaths });
+
             // Accumulate changes
             pendingChangesRef.current.push(...changes);
 
@@ -106,13 +117,16 @@ function App() {
               const batchedChanges = [...pendingChangesRef.current];
               pendingChangesRef.current = [];
 
+              debugLog.log(`Processing ${batchedChanges.length} batched file changes`);
               // Process incrementally instead of full reload
               processFileChanges(settings.notesDirectory, batchedChanges);
             }, 500);
           },
           { recursive: true }
         );
+        debugLog.log('File watcher started successfully');
       } catch (error) {
+        debugLog.error('Failed to start file watcher:', error);
         console.error('Failed to watch directory:', error);
       }
     };
@@ -120,7 +134,10 @@ function App() {
     startWatching();
 
     return () => {
-      if (unwatch) unwatch();
+      if (unwatch) {
+        debugLog.log('Stopping file watcher');
+        unwatch();
+      }
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }

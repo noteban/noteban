@@ -4,6 +4,7 @@ import type { AppSettingsRoot, Profile, ProfileSettings, KanbanColumnSettings } 
 import { DEFAULT_PROFILE_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
 import { DEFAULT_COLUMNS } from '../types/kanban';
 import { migrateSettings, createInitialRoot, generateProfileId } from '../utils/settingsMigration';
+import { debugLog } from '../utils/debugLogger';
 
 interface SettingsState {
   // Root state
@@ -25,6 +26,10 @@ interface SettingsState {
   setAutoSaveDelay: (delay: number) => void;
   setDefaultView: (view: 'notes' | 'kanban') => void;
   setColumns: (columns: KanbanColumnSettings[]) => void;
+
+  // App-wide settings
+  setDisableUpdateChecks: (disable: boolean) => void;
+  setEnableDebugLogging: (enable: boolean) => void;
 
   // Getters
   getActiveProfile: () => Profile | undefined;
@@ -74,6 +79,8 @@ export const useSettingsStore = create<SettingsState>()(
               ? { ...sourceSettings, notesDirectory: '' }
               : { ...DEFAULT_PROFILE_SETTINGS, columns: DEFAULT_COLUMNS },
           };
+
+          debugLog.log('Creating new profile:', { name, id: newProfile.id, copiedFrom: copyFromId || 'none' });
 
           set((state) => ({
             root: {
@@ -134,6 +141,8 @@ export const useSettingsStore = create<SettingsState>()(
 
           if (!profile) return;
 
+          debugLog.log('Switching profile:', { from: root.activeProfileId, to: id, profileName: profile.name });
+
           set({
             root: {
               ...root,
@@ -144,6 +153,7 @@ export const useSettingsStore = create<SettingsState>()(
         },
 
         setNotesDirectory: (dir: string) => {
+          debugLog.log('Setting notes directory:', dir);
           updateActiveProfileSettings((s) => ({ ...s, notesDirectory: dir }));
         },
 
@@ -165,6 +175,26 @@ export const useSettingsStore = create<SettingsState>()(
 
         setColumns: (columns: KanbanColumnSettings[]) => {
           updateActiveProfileSettings((s) => ({ ...s, columns }));
+        },
+
+        setDisableUpdateChecks: (disable: boolean) => {
+          debugLog.log('Setting disableUpdateChecks:', disable);
+          set((state) => ({
+            root: {
+              ...state.root,
+              disableUpdateChecks: disable,
+            },
+          }));
+        },
+
+        setEnableDebugLogging: (enable: boolean) => {
+          debugLog.log('Setting enableDebugLogging:', enable);
+          set((state) => ({
+            root: {
+              ...state.root,
+              enableDebugLogging: enable,
+            },
+          }));
         },
 
         getActiveProfile: () => {

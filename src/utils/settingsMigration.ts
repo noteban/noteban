@@ -1,5 +1,5 @@
 import type { AppSettingsRoot, Profile, ProfileSettings, KanbanColumnSettings } from '../types/settings';
-import { DEFAULT_PROFILE_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
+import { DEFAULT_PROFILE_SETTINGS, DEFAULT_APP_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
 import { DEFAULT_COLUMNS } from '../types/kanban';
 
 // Old format (version 1 or unversioned)
@@ -59,6 +59,8 @@ export function migrateSettings(
       version: SETTINGS_SCHEMA_VERSION,
       activeProfileId: profileId,
       profiles: [migratedProfile],
+      disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
+      enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
     };
 
     return {
@@ -67,7 +69,21 @@ export function migrateSettings(
     };
   }
 
-  // Handle version 2+ (current format) - no migration needed
+  // Handle version 2 -> 3 migration (add new app-wide settings)
+  if (version === 2) {
+    const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
+    return {
+      root: {
+        ...state.root,
+        version: SETTINGS_SCHEMA_VERSION,
+        disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
+        enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
+      },
+      settings: state.settings,
+    };
+  }
+
+  // Handle version 3+ (current format) - no migration needed
   const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
   return state;
 }
@@ -89,6 +105,8 @@ export function createInitialRoot(): AppSettingsRoot {
     version: SETTINGS_SCHEMA_VERSION,
     activeProfileId: defaultProfile.id,
     profiles: [defaultProfile],
+    disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
+    enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
   };
 }
 

@@ -15,6 +15,8 @@ export function SettingsModal() {
     renameProfile,
     deleteProfile,
     switchProfile,
+    setDisableUpdateChecks,
+    setEnableDebugLogging,
   } = useSettingsStore();
   const { showSettings, setShowSettings } = useUIStore();
   const modalRef = useRef<HTMLDivElement>(null);
@@ -244,6 +246,42 @@ export function SettingsModal() {
                 />
                 <span>{settings.autoSaveDelay}ms</span>
               </div>
+            </div>
+          </div>
+
+          <div className="settings-section">
+            <h3>Advanced</h3>
+            <div className="settings-field">
+              <div className="settings-toggle-row">
+                <span>Disable Update Checks</span>
+                <label className="settings-toggle">
+                  <input
+                    type="checkbox"
+                    checked={root.disableUpdateChecks}
+                    onChange={(e) => setDisableUpdateChecks(e.target.checked)}
+                  />
+                  <span className="settings-toggle-track"></span>
+                </label>
+              </div>
+              <p className="settings-field-hint">
+                Prevent automatic checking for app updates on startup
+              </p>
+            </div>
+            <div className="settings-field">
+              <div className="settings-toggle-row">
+                <span>Enable Debug Logging</span>
+                <label className="settings-toggle">
+                  <input
+                    type="checkbox"
+                    checked={root.enableDebugLogging}
+                    onChange={(e) => setEnableDebugLogging(e.target.checked)}
+                  />
+                  <span className="settings-toggle-track"></span>
+                </label>
+              </div>
+              <p className="settings-field-hint">
+                Write verbose debug information to a log file
+              </p>
             </div>
           </div>
         </div>

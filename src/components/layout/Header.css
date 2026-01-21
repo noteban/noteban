@@ -25,7 +25,7 @@
   flex: 1;
   display: flex;
   justify-content: center;
-  max-width: 400px;
+  min-width: 0;
 }
 
 .header-search {
@@ -46,6 +46,7 @@
 
 .header-search-input {
   flex: 1;
+  min-width: 60px;
   border: none;
   background: none;
   padding: var(--spacing-xs);
@@ -92,7 +93,28 @@
   display: none;
 }
 
-/* Filter badge */
+/* Filter badges */
+.header-filter-badges {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.header-filter-badges::-webkit-scrollbar {
+  display: none;
+}
+
+.header-filter-badge-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .header-filter-badge {
   display: flex;
   align-items: center;
@@ -119,6 +141,21 @@
 
 .header-filter-badge button:hover {
   opacity: 1;
+}
+
+.header-filter-operator {
+  padding: 1px 4px;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.header-filter-operator:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 /* Keyboard shortcut hint */

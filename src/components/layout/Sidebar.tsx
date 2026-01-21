@@ -3,12 +3,13 @@ import { Plus, FolderPlus, X, Tag } from 'lucide-react';
 import { useNotesStore, useSettingsStore, useUIStore, useFolderStore } from '../../stores';
 import { FolderTree } from './FolderTree';
 import { TagCloud } from './TagCloud';
+import { hasTagFilter } from '../../utils/tagFilterParser';
 import './Sidebar.css';
 
 export function Sidebar() {
   const { createNote, setActiveNote } = useNotesStore();
   const { settings } = useSettingsStore();
-  const { currentView, filterTag, clearTagFilter } = useUIStore();
+  const { currentView, tagFilter, removeTagFromFilter, setOperatorAtIndex, clearTagFilter } = useUIStore();
   const { selectedFolder, createFolder } = useFolderStore();
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -47,6 +48,13 @@ export function Sidebar() {
   if (currentView === 'kanban') {
     return null;
   }
+
+  const hasActiveFilter = hasTagFilter(tagFilter);
+
+  const handleToggleOperator = (index: number) => {
+    const currentOp = tagFilter.operators[index];
+    setOperatorAtIndex(index, currentOp === 'AND' ? 'OR' : 'AND');
+  };
 
   return (
     <aside className="sidebar">
@@ -88,10 +96,36 @@ export function Sidebar() {
         </div>
       )}
 
-      {filterTag && (
+      {hasActiveFilter && (
         <div className="sidebar-filter-indicator">
           <Tag size={12} />
-          <span className="sidebar-filter-tag">{filterTag}</span>
+          <div className="sidebar-filter-tags">
+            {tagFilter.tags.map((tag, index) => (
+              <span key={tag} className="sidebar-filter-tag-wrapper">
+                {index > 0 && (
+                  <button
+                    className="sidebar-filter-operator"
+                    onClick={() => handleToggleOperator(index - 1)}
+                    title={`Click to switch to ${tagFilter.operators[index - 1] === 'AND' ? 'OR' : 'AND'}`}
+                  >
+                    {tagFilter.operators[index - 1] || 'AND'}
+                  </button>
+                )}
+                <span className="sidebar-filter-tag">
+                  {tag}
+                  {tagFilter.tags.length > 1 && (
+                    <button
+                      className="sidebar-filter-tag-remove"
+                      onClick={() => removeTagFromFilter(tag)}
+                      title={`Remove ${tag}`}
+                    >
+                      <X size={10} />
+                    </button>
+                  )}
+                </span>
+              </span>
+            ))}
+          </div>
           <button
             className="sidebar-filter-clear"
             onClick={clearTagFilter}

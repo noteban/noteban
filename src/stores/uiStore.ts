@@ -1,5 +1,13 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import type { TagFilter, TagFilterOperator } from '../types/tagFilter';
+import {
+  createEmptyTagFilter,
+  hasTagFilter as checkHasTagFilter,
+  addTagToFilter,
+  removeTagFromFilter,
+  setOperatorAtIndex,
+} from '../utils/tagFilterParser';
 
 type View = 'notes' | 'kanban';
 
@@ -10,7 +18,7 @@ interface UIState {
   searchQuery: string;
   showSettings: boolean;
   showAbout: boolean;
-  filterTag: string | null;
+  tagFilter: TagFilter;
 
   setView: (view: View) => void;
   setSidebarWidth: (width: number) => void;
@@ -19,20 +27,25 @@ interface UIState {
   setSearchQuery: (query: string) => void;
   setShowSettings: (show: boolean) => void;
   setShowAbout: (show: boolean) => void;
-  setFilterTag: (tag: string | null) => void;
+  setTagFilter: (filter: TagFilter) => void;
+  setFilterTag: (tag: string) => void;
+  addTagToFilter: (tag: string, operator?: TagFilterOperator) => void;
+  removeTagFromFilter: (tag: string) => void;
+  setOperatorAtIndex: (index: number, operator: TagFilterOperator) => void;
   clearTagFilter: () => void;
+  hasTagFilter: () => boolean;
 }
 
 export const useUIStore = create<UIState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       currentView: 'notes',
       sidebarWidth: 280,
       sidebarCollapsed: false,
       searchQuery: '',
       showSettings: false,
       showAbout: false,
-      filterTag: null,
+      tagFilter: createEmptyTagFilter(),
 
       setView: (view) => set({ currentView: view }),
       setSidebarWidth: (width) => set({ sidebarWidth: width }),
@@ -41,8 +54,31 @@ export const useUIStore = create<UIState>()(
       setSearchQuery: (query) => set({ searchQuery: query }),
       setShowSettings: (show) => set({ showSettings: show }),
       setShowAbout: (show) => set({ showAbout: show }),
-      setFilterTag: (tag) => set({ filterTag: tag }),
-      clearTagFilter: () => set({ filterTag: null }),
+
+      setTagFilter: (filter) => set({ tagFilter: filter }),
+
+      setFilterTag: (tag) => set({
+        tagFilter: {
+          tags: [tag],
+          operators: [],
+        },
+      }),
+
+      addTagToFilter: (tag, operator = 'AND') => set((state) => ({
+        tagFilter: addTagToFilter(state.tagFilter, tag, operator),
+      })),
+
+      removeTagFromFilter: (tag) => set((state) => ({
+        tagFilter: removeTagFromFilter(state.tagFilter, tag),
+      })),
+
+      setOperatorAtIndex: (index, operator) => set((state) => ({
+        tagFilter: setOperatorAtIndex(state.tagFilter, index, operator),
+      })),
+
+      clearTagFilter: () => set({ tagFilter: createEmptyTagFilter() }),
+
+      hasTagFilter: () => checkHasTagFilter(get().tagFilter),
     }),
     {
       name: 'notes-kanban-ui',

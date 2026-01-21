@@ -13,13 +13,15 @@ import { KanbanColumn } from './KanbanColumn';
 import { KanbanCard } from './KanbanCard';
 import { useNotesStore, useSettingsStore, useUIStore } from '../../stores';
 import { useTags } from '../../hooks/useTags';
+import { matchesTagFilter } from '../../utils/tagFilterMatcher';
+import { hasTagFilter } from '../../utils/tagFilterParser';
 import type { Note } from '../../types/note';
 import './KanbanBoard.css';
 
 export function KanbanBoard() {
   const { notes, updateNote, setActiveNote } = useNotesStore();
   const { settings } = useSettingsStore();
-  const { setView, filterTag, clearTagFilter, searchQuery } = useUIStore();
+  const { setView, tagFilter, clearTagFilter, removeTagFromFilter, setOperatorAtIndex, searchQuery } = useUIStore();
   const { getNoteTags } = useTags();
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -31,14 +33,16 @@ export function KanbanBoard() {
     })
   );
 
+  const hasActiveFilter = hasTagFilter(tagFilter);
+
   // Filter notes by tag and search query
   const filteredNotes = useMemo(() => {
     let result = notes;
 
-    if (filterTag) {
+    if (hasActiveFilter) {
       result = result.filter((note) => {
         const noteTags = getNoteTags(note.frontmatter.id);
-        return noteTags.includes(filterTag);
+        return matchesTagFilter(noteTags, tagFilter);
       });
     }
 
@@ -55,7 +59,7 @@ export function KanbanBoard() {
     }
 
     return result;
-  }, [notes, filterTag, searchQuery, getNoteTags]);
+  }, [notes, tagFilter, hasActiveFilter, searchQuery, getNoteTags]);
 
   // Group filtered notes by column
   const notesByColumn = useMemo(() => {
@@ -106,13 +110,48 @@ export function KanbanBoard() {
     setView('notes');
   };
 
+  const handleRemoveTag = (tag: string) => {
+    removeTagFromFilter(tag);
+  };
+
+  const handleToggleOperator = (index: number) => {
+    const currentOp = tagFilter.operators[index];
+    setOperatorAtIndex(index, currentOp === 'AND' ? 'OR' : 'AND');
+  };
+
   return (
     <div className="kanban-board">
-      {filterTag && (
+      {hasActiveFilter && (
         <div className="kanban-filter-indicator">
           <Tag size={14} />
           <span>Filtered by:</span>
-          <span className="kanban-filter-tag">{filterTag}</span>
+          <div className="kanban-filter-tags">
+            {tagFilter.tags.map((tag, index) => (
+              <span key={tag} className="kanban-filter-tag-wrapper">
+                {index > 0 && (
+                  <button
+                    className="kanban-filter-operator"
+                    onClick={() => handleToggleOperator(index - 1)}
+                    title={`Click to switch to ${tagFilter.operators[index - 1] === 'AND' ? 'OR' : 'AND'}`}
+                  >
+                    {tagFilter.operators[index - 1] || 'AND'}
+                  </button>
+                )}
+                <span className="kanban-filter-tag">
+                  {tag}
+                  {tagFilter.tags.length > 1 && (
+                    <button
+                      className="kanban-filter-tag-remove"
+                      onClick={() => handleRemoveTag(tag)}
+                      title={`Remove ${tag}`}
+                    >
+                      <X size={10} />
+                    </button>
+                  )}
+                </span>
+              </span>
+            ))}
+          </div>
           <button
             className="kanban-filter-clear"
             onClick={clearTagFilter}

@@ -7,8 +7,8 @@ import { useUpdater } from '../../hooks';
 import appIcon from '../../../src-tauri/icons/128x128.png';
 import './AboutModal.css';
 
-const APP_NAME = 'Notes Kanban';
-const GITHUB_URL = 'https://github.com/i-doll/note-kanban';
+const APP_NAME = 'Noteban';
+const GITHUB_URL = 'https://github.com/noteban/noteban';
 
 export function AboutModal() {
   const { showAbout, setShowAbout } = useUIStore();
@@ -65,7 +65,7 @@ export function AboutModal() {
 
         <div className="about-content">
           <div className="about-app-info">
-            <img src={appIcon} alt="Notes Kanban" className="about-app-icon" />
+            <img src={appIcon} alt="Noteban" className="about-app-icon" />
             <h3 className="about-app-name">{APP_NAME}</h3>
             <p className="about-app-version">Version {version}</p>
           </div>

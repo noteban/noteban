@@ -214,19 +214,19 @@ jobs:
             "platforms": {
               "darwin-x86_64": {
                 "signature": "${MAC_X64_SIG}",
-                "url": "https://github.com/i-doll/note-kanban/releases/download/v${VERSION}/${MAC_X64_FILE}"
+                "url": "https://github.com/noteban/noteban/releases/download/v${VERSION}/${MAC_X64_FILE}"
               },
               "darwin-aarch64": {
                 "signature": "${MAC_ARM_SIG}",
-                "url": "https://github.com/i-doll/note-kanban/releases/download/v${VERSION}/${MAC_ARM_FILE}"
+                "url": "https://github.com/noteban/noteban/releases/download/v${VERSION}/${MAC_ARM_FILE}"
               },
               "linux-x86_64": {
                 "signature": "${LINUX_SIG}",
-                "url": "https://github.com/i-doll/note-kanban/releases/download/v${VERSION}/${LINUX_FILE}"
+                "url": "https://github.com/noteban/noteban/releases/download/v${VERSION}/${LINUX_FILE}"
               },
               "windows-x86_64": {
                 "signature": "${WIN_SIG}",
-                "url": "https://github.com/i-doll/note-kanban/releases/download/v${VERSION}/${WIN_FILE}"
+                "url": "https://github.com/noteban/noteban/releases/download/v${VERSION}/${WIN_FILE}"
               }
             }
           }

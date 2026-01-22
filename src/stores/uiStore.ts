@@ -45,7 +45,7 @@ export const useUIStore = create<UIState>()(
       clearTagFilter: () => set({ filterTag: null }),
     }),
     {
-      name: 'notes-kanban-ui',
+      name: 'noteban-ui',
       partialize: (state) => ({
         sidebarWidth: state.sidebarWidth,
         sidebarCollapsed: state.sidebarCollapsed,

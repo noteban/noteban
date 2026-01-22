@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Version bump script for Notes Kanban
+# Version bump script for Noteban
 # Usage: ./scripts/bump-version.sh <version>
 # Example: ./scripts/bump-version.sh 1.5.0
 
@@ -59,7 +59,7 @@ echo -e "${GREEN}done${NC}"
 # Update src-tauri/Cargo.lock
 echo -n "Updating src-tauri/Cargo.lock... "
 cd "$PROJECT_ROOT/src-tauri"
-cargo update --package notes-kanban --quiet 2>/dev/null
+cargo update --package noteban --quiet 2>/dev/null
 cd "$PROJECT_ROOT"
 echo -e "${GREEN}done${NC}"
 

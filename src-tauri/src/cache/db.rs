@@ -37,7 +37,7 @@ impl CacheDb {
     }
 
     fn get_cache_path(profile_id: &str) -> Result<PathBuf, String> {
-        let proj_dirs = ProjectDirs::from("", "", "note-kanban")
+        let proj_dirs = ProjectDirs::from("", "", "noteban")
             .ok_or("Could not determine cache directory")?;
         Ok(proj_dirs.cache_dir().join(profile_id).join("cache.db"))
     }

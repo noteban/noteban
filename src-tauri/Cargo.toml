@@ -1,15 +1,15 @@
 [package]
-name = "notes-kanban"
+name = "noteban"
 version = "2.4.0"
 description = "A notes-first app with kanban organization"
 authors = ["you"]
 license = "MIT"
-repository = ""
+repository = "https://github.com/noteban/noteban"
 edition = "2021"
 rust-version = "1.77.2"
 
 [lib]
-name = "notes_kanban_lib"
+name = "noteban_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

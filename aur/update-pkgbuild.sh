@@ -27,8 +27,8 @@ if command -v makepkg &> /dev/null; then
 else
     # Manual update if makepkg not available
     sed -i "s/pkgver = .*/pkgver = $VERSION/" .SRCINFO
-    sed -i "s/Notes\.Kanban_[0-9.]*_amd64/Notes.Kanban_${VERSION}_amd64/" .SRCINFO
-    sed -i "s|/v[0-9.]*/notes-kanban|/v$VERSION/notes-kanban|" .SRCINFO
+    sed -i "s/Noteban_[0-9.]*_amd64/Noteban_${VERSION}_amd64/" .SRCINFO
+    sed -i "s|/v[0-9.]*/noteban|/v$VERSION/noteban|" .SRCINFO
     echo "Updated .SRCINFO manually (makepkg not available)"
 fi
 

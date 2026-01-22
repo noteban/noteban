@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "Notes Kanban",
+  "productName": "Noteban",
   "version": "2.4.0",
   "identifier": "dev.th3a.notes",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Notes Kanban",
+        "title": "Noteban",
         "width": 800,
         "height": 600,
         "minWidth": 400,
@@ -33,7 +33,7 @@
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDUwN0ZGOTg1NjY2QjZBMTgKUldRWWFtdG1oZmwvVUxqVlhmd0Jja2RaRklIWVhoTytwbHRpN0p2YVJIWEdsZW9yZ2N0ZCtxTEgK",
       "endpoints": [
-        "https://github.com/i-doll/note-kanban/releases/latest/download/latest.json"
+        "https://github.com/noteban/noteban/releases/latest/download/latest.json"
       ]
     }
   },

@@ -1,16 +1,16 @@
 # Maintainer: Your Name <your.email@example.com>
-pkgname=notes-kanban-bin
+pkgname=noteban-bin
 pkgver=2.4.0
 pkgrel=1
 pkgdesc="A notes-first app with kanban organization"
 arch=('x86_64')
-url="https://github.com/i-doll/note-kanban"
+url="https://github.com/noteban/noteban"
 license=('MIT')
 depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator')
-provides=('notes-kanban')
-conflicts=('notes-kanban')
+provides=('noteban')
+conflicts=('noteban')
 options=('!strip')
-source=("${pkgname}-${pkgver}.AppImage::${url}/releases/download/v${pkgver}/Notes.Kanban_${pkgver}_amd64.AppImage")
+source=("${pkgname}-${pkgver}.AppImage::${url}/releases/download/v${pkgver}/Noteban_${pkgver}_amd64.AppImage")
 sha256sums=('SKIP')
 
 prepare() {
@@ -20,18 +20,18 @@ prepare() {
 
 package() {
     # Install the main binary
-    install -Dm755 "${srcdir}/squashfs-root/usr/bin/notes-kanban" \
-        "${pkgdir}/usr/bin/notes-kanban"
+    install -Dm755 "${srcdir}/squashfs-root/usr/bin/noteban" \
+        "${pkgdir}/usr/bin/noteban"
 
-    # Install desktop file (has space in filename)
-    install -Dm644 "${srcdir}/squashfs-root/usr/share/applications/Notes Kanban.desktop" \
-        "${pkgdir}/usr/share/applications/notes-kanban.desktop"
+    # Install desktop file
+    install -Dm644 "${srcdir}/squashfs-root/usr/share/applications/Noteban.desktop" \
+        "${pkgdir}/usr/share/applications/noteban.desktop"
 
     # Install icons
-    install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/32x32/apps/notes-kanban.png" \
-        "${pkgdir}/usr/share/icons/hicolor/32x32/apps/notes-kanban.png"
-    install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/128x128/apps/notes-kanban.png" \
-        "${pkgdir}/usr/share/icons/hicolor/128x128/apps/notes-kanban.png"
-    install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/256x256@2/apps/notes-kanban.png" \
-        "${pkgdir}/usr/share/icons/hicolor/256x256/apps/notes-kanban.png"
+    install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/32x32/apps/noteban.png" \
+        "${pkgdir}/usr/share/icons/hicolor/32x32/apps/noteban.png"
+    install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/128x128/apps/noteban.png" \
+        "${pkgdir}/usr/share/icons/hicolor/128x128/apps/noteban.png"
+    install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/256x256@2/apps/noteban.png" \
+        "${pkgdir}/usr/share/icons/hicolor/256x256/apps/noteban.png"
 }

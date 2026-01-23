@@ -98,15 +98,30 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  flex-shrink: 1;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: calc(100% - 100px);
   overflow-x: auto;
   overflow-y: hidden;
-  scrollbar-width: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--bg-secondary) transparent;
 }
 
 .header-filter-badges::-webkit-scrollbar {
-  display: none;
+  height: 4px;
+}
+
+.header-filter-badges::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.header-filter-badges::-webkit-scrollbar-thumb {
+  background-color: var(--bg-secondary);
+  border-radius: 2px;
+}
+
+.header-filter-badges::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-muted);
 }
 
 .header-filter-badge-wrapper {
@@ -126,6 +141,21 @@
   font-size: var(--font-size-xs);
   font-weight: 500;
   flex-shrink: 0;
+  max-width: 200px;
+  cursor: pointer;
+  transition: box-shadow var(--transition-fast), outline var(--transition-fast);
+}
+
+.header-filter-badge.focused {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
+}
+
+.header-filter-badge > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-filter-badge button {

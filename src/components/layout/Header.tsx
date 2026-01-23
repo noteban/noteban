@@ -25,12 +25,21 @@ export function Header() {
   } = useUIStore();
   const { allTags, tagCounts } = useTags();
   const inputRef = useRef<HTMLInputElement>(null);
+  const badgesRef = useRef<HTMLDivElement>(null);
   const [showTagDropdown, setShowTagDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [focusedTagIndex, setFocusedTagIndex] = useState<number | null>(null);
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const modifierKey = isMac ? '⌘' : 'Ctrl';
 
   const hasActiveFilter = hasTagFilter(tagFilter);
+
+  // Reset focused tag when filter changes
+  useEffect(() => {
+    if (focusedTagIndex !== null && focusedTagIndex >= tagFilter.tags.length) {
+      setFocusedTagIndex(tagFilter.tags.length > 0 ? tagFilter.tags.length - 1 : null);
+    }
+  }, [tagFilter.tags.length, focusedTagIndex]);
 
   // Global keyboard shortcut for Ctrl/Cmd+K
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
@@ -85,44 +94,110 @@ export function Header() {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Handle dropdown navigation
     if (showTagDropdown) {
       switch (e.key) {
         case 'ArrowDown':
           e.preventDefault();
           setSelectedIndex(i => Math.min(i + 1, filteredTags.length - 1));
-          break;
+          return;
         case 'ArrowUp':
           e.preventDefault();
           setSelectedIndex(i => Math.max(i - 1, 0));
-          break;
+          return;
         case 'Enter':
           e.preventDefault();
           if (filteredTags[selectedIndex]) {
             selectTag(filteredTags[selectedIndex]);
           }
-          break;
+          return;
         case 'Escape':
           setShowTagDropdown(false);
-          break;
+          return;
       }
-    } else if (e.key === 'Backspace' && searchQuery === '' && hasActiveFilter) {
-      // Remove the last tag when backspacing with empty input
+    }
+
+    const input = inputRef.current;
+    const isAtStart = input?.selectionStart === 0 && input?.selectionEnd === 0;
+    const tagsCount = tagFilter.tags.length;
+
+    // Handle navigation when a tag is focused
+    if (focusedTagIndex !== null) {
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (focusedTagIndex > 0) {
+            setFocusedTagIndex(focusedTagIndex - 1);
+            scrollTagIntoView(focusedTagIndex - 1);
+          }
+          return;
+        case 'ArrowRight':
+          e.preventDefault();
+          if (focusedTagIndex < tagsCount - 1) {
+            setFocusedTagIndex(focusedTagIndex + 1);
+            scrollTagIntoView(focusedTagIndex + 1);
+          } else {
+            // Move to input
+            setFocusedTagIndex(null);
+            inputRef.current?.focus();
+          }
+          return;
+        case 'Backspace':
+        case 'Delete':
+          e.preventDefault();
+          const tagToRemove = tagFilter.tags[focusedTagIndex];
+          const newIndex = focusedTagIndex > 0 ? focusedTagIndex - 1 : (tagsCount > 1 ? 0 : null);
+          removeTagFromFilter(tagToRemove);
+          setFocusedTagIndex(newIndex);
+          if (newIndex === null) {
+            inputRef.current?.focus();
+          }
+          return;
+        default:
+          // Any other key returns focus to input
+          if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+            setFocusedTagIndex(null);
+            inputRef.current?.focus();
+          }
+          return;
+      }
+    }
+
+    // Handle navigation from input to tags
+    if (e.key === 'ArrowLeft' && isAtStart && hasActiveFilter && tagsCount > 0) {
       e.preventDefault();
-      const lastTag = tagFilter.tags[tagFilter.tags.length - 1];
-      if (lastTag) {
-        removeTagFromFilter(lastTag);
-      }
-    } else if (e.key === 'Enter') {
-      // Parse single tag expression on Enter (multi-tag auto-applies)
+      setFocusedTagIndex(tagsCount - 1);
+      scrollTagIntoView(tagsCount - 1);
+      return;
+    }
+
+    // Backspace at start of input with tags - focus last tag
+    if (e.key === 'Backspace' && searchQuery === '' && hasActiveFilter && tagsCount > 0) {
+      e.preventDefault();
+      setFocusedTagIndex(tagsCount - 1);
+      scrollTagIntoView(tagsCount - 1);
+      return;
+    }
+
+    // Enter to add tag
+    if (e.key === 'Enter') {
       const parsed = parseTagFilterExpression(searchQuery);
       if (parsed && parsed.tags.length === 1) {
         if (hasActiveFilter) {
-          // Add to existing filter with detected operator
           addTagToFilter(parsed.tags[0], detectOperator());
         } else {
           setTagFilter(parsed);
         }
         setSearchQuery('');
+      }
+    }
+  };
+
+  const scrollTagIntoView = (index: number) => {
+    if (badgesRef.current) {
+      const badges = badgesRef.current.querySelectorAll('.header-filter-badge');
+      if (badges[index]) {
+        badges[index].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
       }
     }
   };
@@ -162,7 +237,7 @@ export function Header() {
         <div className="header-search">
           <Search size={16} className="header-search-icon" />
           {hasActiveFilter && (
-            <div className="header-filter-badges">
+            <div className="header-filter-badges" ref={badgesRef}>
               {tagFilter.tags.map((tag, index) => (
                 <span key={tag} className="header-filter-badge-wrapper">
                   {index > 0 && (
@@ -174,10 +249,16 @@ export function Header() {
                       {tagFilter.operators[index - 1] || 'AND'}
                     </button>
                   )}
-                  <span className="header-filter-badge">
+                  <span
+                    className={`header-filter-badge ${focusedTagIndex === index ? 'focused' : ''}`}
+                    onClick={() => {
+                      setFocusedTagIndex(index);
+                      inputRef.current?.focus();
+                    }}
+                  >
                     <Hash size={12} />
-                    <span>{tag}</span>
-                    <button onClick={() => handleRemoveTag(tag)} title={`Remove ${tag}`}>
+                    <span title={tag}>{tag}</span>
+                    <button onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag); }} title={`Remove ${tag}`}>
                       <X size={12} />
                     </button>
                   </span>
@@ -192,7 +273,14 @@ export function Header() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            onBlur={() => setTimeout(() => setShowTagDropdown(false), 150)}
+            onFocus={() => setFocusedTagIndex(null)}
+            onClick={() => setFocusedTagIndex(null)}
+            onBlur={() => {
+              setTimeout(() => {
+                setShowTagDropdown(false);
+                setFocusedTagIndex(null);
+              }, 150);
+            }}
             className="header-search-input"
           />
           {(searchQuery || hasActiveFilter) && (

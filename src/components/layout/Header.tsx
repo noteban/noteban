@@ -2,17 +2,44 @@ import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { Search, Kanban, FileText, Settings, X, Hash, Info } from 'lucide-react';
 import { useUIStore } from '../../stores';
 import { useTags } from '../../hooks';
+import { parseTagFilterExpression, hasTagFilter } from '../../utils/tagFilterParser';
+import type { TagFilterOperator } from '../../types/tagFilter';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import './Header.css';
 
 export function Header() {
-  const { currentView, setView, searchQuery, setSearchQuery, setShowSettings, setShowAbout, filterTag, setFilterTag, clearTagFilter } = useUIStore();
+  const {
+    currentView,
+    setView,
+    searchQuery,
+    setSearchQuery,
+    setShowSettings,
+    setShowAbout,
+    tagFilter,
+    setTagFilter,
+    setFilterTag,
+    addTagToFilter,
+    removeTagFromFilter,
+    setOperatorAtIndex,
+    clearTagFilter,
+  } = useUIStore();
   const { allTags, tagCounts } = useTags();
   const inputRef = useRef<HTMLInputElement>(null);
+  const badgesRef = useRef<HTMLDivElement>(null);
   const [showTagDropdown, setShowTagDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [focusedTagIndex, setFocusedTagIndex] = useState<number | null>(null);
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const modifierKey = isMac ? '⌘' : 'Ctrl';
+
+  const hasActiveFilter = hasTagFilter(tagFilter);
+
+  // Reset focused tag when filter changes
+  useEffect(() => {
+    if (focusedTagIndex !== null && focusedTagIndex >= tagFilter.tags.length) {
+      setFocusedTagIndex(tagFilter.tags.length > 0 ? tagFilter.tags.length - 1 : null);
+    }
+  }, [tagFilter.tags.length, focusedTagIndex]);
 
   // Global keyboard shortcut for Ctrl/Cmd+K
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
@@ -32,8 +59,11 @@ export function Header() {
     if (!searchQuery.includes('#')) return [];
     const hashIndex = searchQuery.lastIndexOf('#');
     const tagQuery = searchQuery.slice(hashIndex + 1).toLowerCase();
-    return allTags.filter(tag => tag.toLowerCase().includes(tagQuery));
-  }, [searchQuery, allTags]);
+    // Filter out tags that are already in the filter
+    return allTags
+      .filter(tag => tag.toLowerCase().includes(tagQuery))
+      .filter(tag => !tagFilter.tags.includes(tag));
+  }, [searchQuery, allTags, tagFilter.tags]);
 
   // Show dropdown when typing # and there are matching tags
   useEffect(() => {
@@ -44,32 +74,141 @@ export function Header() {
     }
   }, [searchQuery, filteredTags.length]);
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (!showTagDropdown) return;
+  // Auto-apply multi-tag filter expressions as user types
+  useEffect(() => {
+    const parsed = parseTagFilterExpression(searchQuery);
+    // Only auto-apply if we have 2+ tags (multi-tag expression)
+    if (parsed && parsed.tags.length >= 2) {
+      setTagFilter(parsed);
+      setSearchQuery('');
+    }
+  }, [searchQuery, setTagFilter, setSearchQuery]);
 
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setSelectedIndex(i => Math.min(i + 1, filteredTags.length - 1));
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setSelectedIndex(i => Math.max(i - 1, 0));
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (filteredTags[selectedIndex]) {
-          selectTag(filteredTags[selectedIndex]);
+  // Detect operator from search query
+  const detectOperator = (): TagFilterOperator => {
+    const upperQuery = searchQuery.toUpperCase();
+    if (upperQuery.includes(' OR ') || upperQuery.startsWith('OR ')) {
+      return 'OR';
+    }
+    return 'AND';
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Handle dropdown navigation
+    if (showTagDropdown) {
+      switch (e.key) {
+        case 'ArrowDown':
+          e.preventDefault();
+          setSelectedIndex(i => Math.min(i + 1, filteredTags.length - 1));
+          return;
+        case 'ArrowUp':
+          e.preventDefault();
+          setSelectedIndex(i => Math.max(i - 1, 0));
+          return;
+        case 'Enter':
+          e.preventDefault();
+          if (filteredTags[selectedIndex]) {
+            selectTag(filteredTags[selectedIndex]);
+          }
+          return;
+        case 'Escape':
+          setShowTagDropdown(false);
+          return;
+      }
+    }
+
+    const input = inputRef.current;
+    const isAtStart = input?.selectionStart === 0 && input?.selectionEnd === 0;
+    const tagsCount = tagFilter.tags.length;
+
+    // Handle navigation when a tag is focused
+    if (focusedTagIndex !== null) {
+      switch (e.key) {
+        case 'ArrowLeft':
+          e.preventDefault();
+          if (focusedTagIndex > 0) {
+            setFocusedTagIndex(focusedTagIndex - 1);
+            scrollTagIntoView(focusedTagIndex - 1);
+          }
+          return;
+        case 'ArrowRight':
+          e.preventDefault();
+          if (focusedTagIndex < tagsCount - 1) {
+            setFocusedTagIndex(focusedTagIndex + 1);
+            scrollTagIntoView(focusedTagIndex + 1);
+          } else {
+            // Move to input
+            setFocusedTagIndex(null);
+            inputRef.current?.focus();
+          }
+          return;
+        case 'Backspace':
+        case 'Delete':
+          e.preventDefault();
+          const tagToRemove = tagFilter.tags[focusedTagIndex];
+          const newIndex = focusedTagIndex > 0 ? focusedTagIndex - 1 : (tagsCount > 1 ? 0 : null);
+          removeTagFromFilter(tagToRemove);
+          setFocusedTagIndex(newIndex);
+          if (newIndex === null) {
+            inputRef.current?.focus();
+          }
+          return;
+        default:
+          // Any other key returns focus to input
+          if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+            setFocusedTagIndex(null);
+            inputRef.current?.focus();
+          }
+          return;
+      }
+    }
+
+    // Handle navigation from input to tags
+    if (e.key === 'ArrowLeft' && isAtStart && hasActiveFilter && tagsCount > 0) {
+      e.preventDefault();
+      setFocusedTagIndex(tagsCount - 1);
+      scrollTagIntoView(tagsCount - 1);
+      return;
+    }
+
+    // Backspace at start of input with tags - focus last tag
+    if (e.key === 'Backspace' && searchQuery === '' && hasActiveFilter && tagsCount > 0) {
+      e.preventDefault();
+      setFocusedTagIndex(tagsCount - 1);
+      scrollTagIntoView(tagsCount - 1);
+      return;
+    }
+
+    // Enter to add tag
+    if (e.key === 'Enter') {
+      const parsed = parseTagFilterExpression(searchQuery);
+      if (parsed && parsed.tags.length === 1) {
+        if (hasActiveFilter) {
+          addTagToFilter(parsed.tags[0], detectOperator());
+        } else {
+          setTagFilter(parsed);
         }
-        break;
-      case 'Escape':
-        setShowTagDropdown(false);
-        break;
+        setSearchQuery('');
+      }
+    }
+  };
+
+  const scrollTagIntoView = (index: number) => {
+    if (badgesRef.current) {
+      const badges = badgesRef.current.querySelectorAll('.header-filter-badge');
+      if (badges[index]) {
+        badges[index].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+      }
     }
   };
 
   const selectTag = (tag: string) => {
-    setFilterTag(tag);
+    if (hasActiveFilter) {
+      // Add to existing filter with detected operator
+      addTagToFilter(tag, detectOperator());
+    } else {
+      setFilterTag(tag);
+    }
     setSearchQuery('');
     setShowTagDropdown(false);
   };
@@ -79,6 +218,15 @@ export function Header() {
     setSearchQuery('');
   };
 
+  const handleRemoveTag = (tag: string) => {
+    removeTagFromFilter(tag);
+  };
+
+  const handleToggleOperator = (index: number) => {
+    const currentOp = tagFilter.operators[index];
+    setOperatorAtIndex(index, currentOp === 'AND' ? 'OR' : 'AND');
+  };
+
   return (
     <header className="header">
       <div className="header-left">
@@ -86,37 +234,64 @@ export function Header() {
       </div>
 
       <div className="header-center">
-        <div className="header-search">
+        <div className="header-search" onClick={() => inputRef.current?.focus()}>
           <Search size={16} className="header-search-icon" />
-          {filterTag && (
-            <div className="header-filter-badge">
-              <Hash size={12} />
-              <span>{filterTag}</span>
-              <button onClick={handleClearFilter} title="Clear filter">
-                <X size={12} />
-              </button>
-            </div>
-          )}
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder={filterTag ? "Search within filter..." : "Search notes..."}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onBlur={() => setTimeout(() => setShowTagDropdown(false), 150)}
-            className="header-search-input"
-          />
-          {(searchQuery || filterTag) && (
+          <div className="header-search-field" ref={badgesRef}>
+            {hasActiveFilter && tagFilter.tags.map((tag, index) => (
+              <span key={tag} className="header-filter-badge-wrapper">
+                {index > 0 && (
+                  <button
+                    className="header-filter-operator"
+                    onClick={(e) => { e.stopPropagation(); handleToggleOperator(index - 1); }}
+                    title={`Click to switch to ${tagFilter.operators[index - 1] === 'AND' ? 'OR' : 'AND'}`}
+                  >
+                    {tagFilter.operators[index - 1] || 'AND'}
+                  </button>
+                )}
+                <span
+                  className={`header-filter-badge ${focusedTagIndex === index ? 'focused' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFocusedTagIndex(index);
+                    inputRef.current?.focus();
+                  }}
+                >
+                  <Hash size={12} />
+                  <span title={tag}>{tag}</span>
+                  <button onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag); }} title={`Remove ${tag}`}>
+                    <X size={12} />
+                  </button>
+                </span>
+              </span>
+            ))}
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder={hasActiveFilter ? "Add more tags..." : "Search notes or type #tag..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setFocusedTagIndex(null)}
+              onClick={(e) => { e.stopPropagation(); setFocusedTagIndex(null); }}
+              onBlur={() => {
+                setTimeout(() => {
+                  setShowTagDropdown(false);
+                  setFocusedTagIndex(null);
+                }, 150);
+              }}
+              className="header-search-input"
+            />
+          </div>
+          {(searchQuery || hasActiveFilter) && (
             <button
               className="header-search-clear"
-              onClick={handleClearFilter}
+              onClick={(e) => { e.stopPropagation(); handleClearFilter(); }}
               title="Clear search"
             >
               <X size={16} className="header-search-clear-icon" />
             </button>
           )}
-          {!searchQuery && !filterTag && (
+          {!searchQuery && !hasActiveFilter && (
             <kbd className="header-search-shortcut">{modifierKey} K</kbd>
           )}
 

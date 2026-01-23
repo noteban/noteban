@@ -25,7 +25,7 @@
   flex: 1;
   display: flex;
   justify-content: center;
-  max-width: 400px;
+  min-width: 0;
 }
 
 .header-search {
@@ -37,6 +37,7 @@
   border-radius: var(--radius-md);
   padding: var(--spacing-xs) var(--spacing-sm);
   gap: var(--spacing-sm);
+  cursor: text;
 }
 
 .header-search-icon {
@@ -44,11 +45,27 @@
   flex-shrink: 0;
 }
 
-.header-search-input {
+.header-search-field {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.header-search-field::-webkit-scrollbar {
+  display: none;
+}
+
+.header-search-input {
+  flex: 1 1 80px;
+  min-width: 80px;
   border: none;
   background: none;
-  padding: var(--spacing-xs);
+  padding: var(--spacing-xs) 0;
   font-size: var(--font-size-sm);
 }
 
@@ -92,7 +109,13 @@
   display: none;
 }
 
-/* Filter badge */
+/* Filter badges */
+.header-filter-badge-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .header-filter-badge {
   display: flex;
   align-items: center;
@@ -104,6 +127,21 @@
   font-size: var(--font-size-xs);
   font-weight: 500;
   flex-shrink: 0;
+  max-width: 200px;
+  cursor: pointer;
+  transition: box-shadow var(--transition-fast), outline var(--transition-fast);
+}
+
+.header-filter-badge.focused {
+  outline: 2px solid var(--text-primary);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.1);
+}
+
+.header-filter-badge > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .header-filter-badge button {
@@ -119,6 +157,21 @@
 
 .header-filter-badge button:hover {
   opacity: 1;
+}
+
+.header-filter-operator {
+  padding: 1px 4px;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  font-weight: 600;
+  transition: all var(--transition-fast);
+}
+
+.header-filter-operator:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 /* Keyboard shortcut hint */

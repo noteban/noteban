@@ -10,6 +10,8 @@ import { useFolderStore, useNotesStore, useSettingsStore, useUIStore } from '../
 import { FolderContextMenu } from './FolderContextMenu';
 import { ContextMenu } from './ContextMenu';
 import { useTags } from '../../hooks/useTags';
+import { matchesTagFilter } from '../../utils/tagFilterMatcher';
+import { hasTagFilter } from '../../utils/tagFilterParser';
 import type { Folder as FolderType } from '../../types/folder';
 import type { Note } from '../../types/note';
 import './FolderTree.css';
@@ -24,7 +26,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
   const { folders, expandedFolders, toggleFolder, selectedFolder, selectFolder } =
     useFolderStore();
   const { notes, activeNoteId, setActiveNote, deleteNote, updateNote } = useNotesStore();
-  const { filterTag, searchQuery } = useUIStore();
+  const { tagFilter, searchQuery } = useUIStore();
   const { getNoteTags } = useTags();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [noteContextMenu, setNoteContextMenu] = useState<{ note: Note; x: number; y: number } | null>(null);
@@ -56,10 +58,10 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     });
 
     // Apply tag filter
-    if (filterTag) {
+    if (hasTagFilter(tagFilter)) {
       filtered = filtered.filter((note) => {
         const noteTags = getNoteTags(note.frontmatter.id);
-        return noteTags.includes(filterTag);
+        return matchesTagFilter(noteTags, tagFilter);
       });
     }
 
@@ -77,7 +79,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     }
 
     return filtered;
-  }, [notes, notesDir, relativePath, filterTag, searchQuery, getNoteTags]);
+  }, [notes, notesDir, relativePath, tagFilter, searchQuery, getNoteTags]);
 
   // Get child folders
   const childFolders = useMemo(() => {

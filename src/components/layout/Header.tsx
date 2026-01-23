@@ -234,59 +234,58 @@ export function Header() {
       </div>
 
       <div className="header-center">
-        <div className="header-search">
+        <div className="header-search" onClick={() => inputRef.current?.focus()}>
           <Search size={16} className="header-search-icon" />
-          {hasActiveFilter && (
-            <div className="header-filter-badges" ref={badgesRef}>
-              {tagFilter.tags.map((tag, index) => (
-                <span key={tag} className="header-filter-badge-wrapper">
-                  {index > 0 && (
-                    <button
-                      className="header-filter-operator"
-                      onClick={() => handleToggleOperator(index - 1)}
-                      title={`Click to switch to ${tagFilter.operators[index - 1] === 'AND' ? 'OR' : 'AND'}`}
-                    >
-                      {tagFilter.operators[index - 1] || 'AND'}
-                    </button>
-                  )}
-                  <span
-                    className={`header-filter-badge ${focusedTagIndex === index ? 'focused' : ''}`}
-                    onClick={() => {
-                      setFocusedTagIndex(index);
-                      inputRef.current?.focus();
-                    }}
+          <div className="header-search-field" ref={badgesRef}>
+            {hasActiveFilter && tagFilter.tags.map((tag, index) => (
+              <span key={tag} className="header-filter-badge-wrapper">
+                {index > 0 && (
+                  <button
+                    className="header-filter-operator"
+                    onClick={(e) => { e.stopPropagation(); handleToggleOperator(index - 1); }}
+                    title={`Click to switch to ${tagFilter.operators[index - 1] === 'AND' ? 'OR' : 'AND'}`}
                   >
-                    <Hash size={12} />
-                    <span title={tag}>{tag}</span>
-                    <button onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag); }} title={`Remove ${tag}`}>
-                      <X size={12} />
-                    </button>
-                  </span>
+                    {tagFilter.operators[index - 1] || 'AND'}
+                  </button>
+                )}
+                <span
+                  className={`header-filter-badge ${focusedTagIndex === index ? 'focused' : ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFocusedTagIndex(index);
+                    inputRef.current?.focus();
+                  }}
+                >
+                  <Hash size={12} />
+                  <span title={tag}>{tag}</span>
+                  <button onClick={(e) => { e.stopPropagation(); handleRemoveTag(tag); }} title={`Remove ${tag}`}>
+                    <X size={12} />
+                  </button>
                 </span>
-              ))}
-            </div>
-          )}
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder={hasActiveFilter ? "" : "Search notes or type #tag..."}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            onFocus={() => setFocusedTagIndex(null)}
-            onClick={() => setFocusedTagIndex(null)}
-            onBlur={() => {
-              setTimeout(() => {
-                setShowTagDropdown(false);
-                setFocusedTagIndex(null);
-              }, 150);
-            }}
-            className="header-search-input"
-          />
+              </span>
+            ))}
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder={hasActiveFilter ? "Add more tags..." : "Search notes or type #tag..."}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              onFocus={() => setFocusedTagIndex(null)}
+              onClick={(e) => { e.stopPropagation(); setFocusedTagIndex(null); }}
+              onBlur={() => {
+                setTimeout(() => {
+                  setShowTagDropdown(false);
+                  setFocusedTagIndex(null);
+                }, 150);
+              }}
+              className="header-search-input"
+            />
+          </div>
           {(searchQuery || hasActiveFilter) && (
             <button
               className="header-search-clear"
-              onClick={handleClearFilter}
+              onClick={(e) => { e.stopPropagation(); handleClearFilter(); }}
               title="Clear search"
             >
               <X size={16} className="header-search-clear-icon" />

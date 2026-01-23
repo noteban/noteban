@@ -6,7 +6,7 @@ import { useUpdateStore, useSettingsStore } from '../stores';
 import { debugLog } from '../utils/debugLogger';
 
 const isLinux = navigator.platform.toLowerCase().includes('linux');
-const GITHUB_RELEASES_URL = 'https://github.com/i-doll/note-kanban/releases/latest';
+const GITHUB_RELEASES_URL = 'https://github.com/noteban/noteban/releases/latest';
 
 // Set to true to mock update availability in dev mode
 const DEV_MOCK_UPDATE = false;

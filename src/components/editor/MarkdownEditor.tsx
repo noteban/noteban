@@ -11,8 +11,10 @@ import { useNotesStore, useSettingsStore, useUIStore } from '../../stores';
 import { useDebounce } from '../../hooks/useDebounce';
 import { checkboxPlugin, checkboxTheme } from './checkboxPlugin';
 import { tagPlugin, tagTheme } from './tagPlugin';
+import { tagAutocomplete } from './tagAutocompletePlugin';
 import { imagePlugin } from './imagePlugin';
 import { listContinuationKeymap } from './listContinuationPlugin';
+import { useTags } from '../../hooks/useTags';
 import './MarkdownEditor.css';
 
 // Catppuccin Mocha theme for CodeMirror
@@ -106,6 +108,7 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
   const { notes, activeNoteId, updateNote } = useNotesStore();
   const { settings } = useSettingsStore();
   const { setFilterTag } = useUIStore();
+  const { tagsByFrequency } = useTags();
   const editorRef = useRef<ReactCodeMirrorRef>(null);
 
   // Listen for tag clicks from the editor plugin
@@ -165,6 +168,7 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
       checkboxTheme,
       tagPlugin,
       tagTheme,
+      tagAutocomplete(tagsByFrequency),
       EditorView.theme({
         '.cm-content': {
           fontSize: `${settings.editorFontSize}px`,
@@ -192,7 +196,7 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
     }
 
     return exts;
-  }, [settings.editorFontSize, activeNote?.file_path]);
+  }, [settings.editorFontSize, activeNote?.file_path, tagsByFrequency]);
 
   if (!activeNote) {
     return (

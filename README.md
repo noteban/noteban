@@ -1,4 +1,4 @@
-# Notes Kanban
+# Noteban
 
 This is a small note app to satisfy my own needs more than anything.
 

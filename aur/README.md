@@ -1,6 +1,6 @@
-# Notes Kanban AUR Package
+# Noteban AUR Package
 
-This directory contains the PKGBUILD for submitting Notes Kanban to the Arch User Repository (AUR).
+This directory contains the PKGBUILD for submitting Noteban to the Arch User Repository (AUR).
 
 ## Installing Locally
 
@@ -15,7 +15,7 @@ makepkg -si
 2. Add your SSH key to your AUR account
 3. Clone the AUR package (first time):
    ```bash
-   git clone ssh://aur@aur.archlinux.org/notes-kanban-bin.git
+   git clone ssh://aur@aur.archlinux.org/noteban-bin.git
    ```
 4. Copy PKGBUILD and .SRCINFO to the cloned repo
 5. Commit and push
@@ -39,13 +39,13 @@ makepkg --printsrcinfo > .SRCINFO
 ## Notes
 
 - The package downloads the AppImage from GitHub releases
-- AppImage filename format: `Notes.Kanban_{version}_amd64.AppImage`
+- AppImage filename format: `Noteban_{version}_amd64.AppImage`
 - If the AppImage naming changes, update the `source` line in PKGBUILD
 
 ## First-time Setup
 
 After your first release, verify the actual AppImage filename on the GitHub release page.
-If it differs from `notes-kanban_{version}_amd64.AppImage`, update the source URL in PKGBUILD:
+If it differs from `noteban_{version}_amd64.AppImage`, update the source URL in PKGBUILD:
 
 ```bash
 # Check the actual filename, then update if needed:

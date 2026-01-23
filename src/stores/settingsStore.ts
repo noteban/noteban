@@ -208,7 +208,7 @@ export const useSettingsStore = create<SettingsState>()(
       };
     },
     {
-      name: 'notes-kanban-settings',
+      name: 'noteban-settings',
       version: SETTINGS_SCHEMA_VERSION,
       migrate: migrateSettings,
     }

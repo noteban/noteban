@@ -1,11 +1,11 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-const APP_NAME = 'Notes Kanban';
+const APP_NAME = 'Noteban';
 
 /**
  * Sets the window title based on the current profile.
- * Format: "ProfileName - Notes Kanban" if multiple profiles exist
- * Format: "Notes Kanban" if only one profile exists
+ * Format: "ProfileName - Noteban" if multiple profiles exist
+ * Format: "Noteban" if only one profile exists
  */
 export async function setWindowTitle(
   profileName: string | null,

@@ -12,6 +12,7 @@ import { useDebounce } from '../../hooks/useDebounce';
 import { checkboxPlugin, checkboxTheme } from './checkboxPlugin';
 import { tagPlugin, tagTheme } from './tagPlugin';
 import { tagAutocomplete } from './tagAutocompletePlugin';
+import { linkPlugin, linkTheme, modifierClassPlugin, linkClickHandler } from './linkPlugin';
 import { imagePlugin } from './imagePlugin';
 import { listContinuationKeymap } from './listContinuationPlugin';
 import { useTags } from '../../hooks/useTags';
@@ -121,6 +122,18 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
     return () => window.removeEventListener('tag-click', handleTagClick as EventListener);
   }, [setFilterTag]);
 
+  // Listen for link clicks from the editor plugin (Cmd/Ctrl+click)
+  useEffect(() => {
+    const handleLinkClick = (e: CustomEvent<string>) => {
+      import('@tauri-apps/plugin-shell').then(({ open }) => {
+        open(e.detail);
+      });
+    };
+
+    window.addEventListener('link-click', handleLinkClick as EventListener);
+    return () => window.removeEventListener('link-click', handleLinkClick as EventListener);
+  }, []);
+
   // Focus editor when active note changes
   useEffect(() => {
     if (activeNoteId && editorRef.current?.view) {
@@ -169,6 +182,10 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
       tagPlugin,
       tagTheme,
       tagAutocomplete(tagsByFrequency),
+      linkPlugin,
+      modifierClassPlugin,
+      linkTheme,
+      linkClickHandler,
       EditorView.theme({
         '.cm-content': {
           fontSize: `${settings.editorFontSize}px`,

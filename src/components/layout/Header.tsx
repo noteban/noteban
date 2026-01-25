@@ -1,11 +1,14 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { Search, Kanban, FileText, Settings, X, Hash, Info } from 'lucide-react';
+import { Search, Kanban, FileText, Settings, X, Hash, Info, Minus, Square, Copy } from 'lucide-react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useUIStore } from '../../stores';
 import { useTags } from '../../hooks';
 import { parseTagFilterExpression, hasTagFilter } from '../../utils/tagFilterParser';
 import type { TagFilterOperator } from '../../types/tagFilter';
 import { ProfileSwitcher } from './ProfileSwitcher';
 import './Header.css';
+
+const appWindow = getCurrentWindow();
 
 export function Header() {
   const {
@@ -29,8 +32,23 @@ export function Header() {
   const [showTagDropdown, setShowTagDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [focusedTagIndex, setFocusedTagIndex] = useState<number | null>(null);
+  const [isMaximized, setIsMaximized] = useState(false);
   const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const modifierKey = isMac ? '⌘' : 'Ctrl';
+
+  // Track window maximized state
+  useEffect(() => {
+    const checkMaximized = async () => {
+      setIsMaximized(await appWindow.isMaximized());
+    };
+    checkMaximized();
+    const unlisten = appWindow.onResized(checkMaximized);
+    return () => { unlisten.then(fn => fn()); };
+  }, []);
+
+  const handleMinimize = () => appWindow.minimize();
+  const handleToggleMaximize = () => appWindow.toggleMaximize();
+  const handleClose = () => appWindow.close();
 
   const hasActiveFilter = hasTagFilter(tagFilter);
 
@@ -228,7 +246,7 @@ export function Header() {
   };
 
   return (
-    <header className="header">
+    <header className="header" data-tauri-drag-region>
       <div className="header-left">
         <h1 className="header-logo">Notes</h1>
       </div>
@@ -344,6 +362,29 @@ export function Header() {
         >
           <Settings size={18} />
         </button>
+        <div className="window-controls">
+          <button
+            className="window-control-btn"
+            onClick={handleMinimize}
+            title="Minimize"
+          >
+            <Minus size={16} />
+          </button>
+          <button
+            className="window-control-btn"
+            onClick={handleToggleMaximize}
+            title={isMaximized ? "Restore" : "Maximize"}
+          >
+            {isMaximized ? <Copy size={14} /> : <Square size={14} />}
+          </button>
+          <button
+            className="window-control-btn close"
+            onClick={handleClose}
+            title="Close"
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
     </header>
   );

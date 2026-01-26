@@ -246,7 +246,7 @@ export function Header() {
   };
 
   return (
-    <header className="header" data-tauri-drag-region>
+    <header className="header" {...(!isMac && { 'data-tauri-drag-region': true })}>
       <div className="header-left">
         <h1 className="header-logo">Notes</h1>
       </div>
@@ -362,29 +362,31 @@ export function Header() {
         >
           <Settings size={18} />
         </button>
-        <div className="window-controls">
-          <button
-            className="window-control-btn"
-            onClick={handleMinimize}
-            title="Minimize"
-          >
-            <Minus size={16} />
-          </button>
-          <button
-            className="window-control-btn"
-            onClick={handleToggleMaximize}
-            title={isMaximized ? "Restore" : "Maximize"}
-          >
-            {isMaximized ? <Copy size={14} /> : <Square size={14} />}
-          </button>
-          <button
-            className="window-control-btn close"
-            onClick={handleClose}
-            title="Close"
-          >
-            <X size={16} />
-          </button>
-        </div>
+        {!isMac && (
+          <div className="window-controls">
+            <button
+              className="window-control-btn"
+              onClick={handleMinimize}
+              title="Minimize"
+            >
+              <Minus size={16} />
+            </button>
+            <button
+              className="window-control-btn"
+              onClick={handleToggleMaximize}
+              title={isMaximized ? "Restore" : "Maximize"}
+            >
+              {isMaximized ? <Copy size={14} /> : <Square size={14} />}
+            </button>
+            <button
+              className="window-control-btn close"
+              onClick={handleClose}
+              title="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

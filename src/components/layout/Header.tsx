@@ -52,12 +52,14 @@ export function Header() {
 
   const hasActiveFilter = hasTagFilter(tagFilter);
 
-  // Reset focused tag when filter changes
-  useEffect(() => {
+  // Reset focused tag when filter changes - derived during render
+  const [prevTagsLength, setPrevTagsLength] = useState(tagFilter.tags.length);
+  if (tagFilter.tags.length !== prevTagsLength) {
+    setPrevTagsLength(tagFilter.tags.length);
     if (focusedTagIndex !== null && focusedTagIndex >= tagFilter.tags.length) {
       setFocusedTagIndex(tagFilter.tags.length > 0 ? tagFilter.tags.length - 1 : null);
     }
-  }, [tagFilter.tags.length, focusedTagIndex]);
+  }
 
   // Global keyboard shortcut for Ctrl/Cmd+K
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
@@ -83,14 +85,18 @@ export function Header() {
       .filter(tag => !tagFilter.tags.includes(tag));
   }, [searchQuery, allTags, tagFilter.tags]);
 
-  // Show dropdown when typing # and there are matching tags
-  useEffect(() => {
-    const hasHash = searchQuery.includes('#');
+  // Track previous values to derive dropdown state during render (React-recommended pattern)
+  const [prevDropdownDeps, setPrevDropdownDeps] = useState({ query: searchQuery, tagsLen: filteredTags.length });
+  
+  // Show dropdown when typing # and there are matching tags - derived during render
+  const hasHash = searchQuery.includes('#');
+  if (searchQuery !== prevDropdownDeps.query || filteredTags.length !== prevDropdownDeps.tagsLen) {
+    setPrevDropdownDeps({ query: searchQuery, tagsLen: filteredTags.length });
     setShowTagDropdown(hasHash && filteredTags.length > 0);
-    if (hasHash) {
+    if (hasHash && searchQuery !== prevDropdownDeps.query) {
       setSelectedIndex(0);
     }
-  }, [searchQuery, filteredTags.length]);
+  }
 
   // Auto-apply multi-tag filter expressions as user types
   useEffect(() => {
@@ -162,15 +168,17 @@ export function Header() {
           return;
         case 'Backspace':
         case 'Delete':
-          e.preventDefault();
-          const tagToRemove = tagFilter.tags[focusedTagIndex];
-          const newIndex = focusedTagIndex > 0 ? focusedTagIndex - 1 : (tagsCount > 1 ? 0 : null);
-          removeTagFromFilter(tagToRemove);
-          setFocusedTagIndex(newIndex);
-          if (newIndex === null) {
-            inputRef.current?.focus();
+          {
+            e.preventDefault();
+            const tagToRemove = tagFilter.tags[focusedTagIndex];
+            const newIndex = focusedTagIndex > 0 ? focusedTagIndex - 1 : (tagsCount > 1 ? 0 : null);
+            removeTagFromFilter(tagToRemove);
+            setFocusedTagIndex(newIndex);
+            if (newIndex === null) {
+              inputRef.current?.focus();
+            }
+            return;
           }
-          return;
         default:
           // Any other key returns focus to input
           if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {

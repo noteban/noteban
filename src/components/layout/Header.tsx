@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { Search, Kanban, FileText, Settings, X, Hash, Info, Minus, Square, Copy } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { useUIStore } from '../../stores';
+import { useUIStore, useSettingsStore } from '../../stores';
 import { useTags } from '../../hooks';
 import { parseTagFilterExpression, hasTagFilter } from '../../utils/tagFilterParser';
 import type { TagFilterOperator } from '../../types/tagFilter';
@@ -26,6 +26,7 @@ export function Header() {
     setOperatorAtIndex,
     clearTagFilter,
   } = useUIStore();
+  const { root } = useSettingsStore();
   const { allTags, tagCounts } = useTags();
   const inputRef = useRef<HTMLInputElement>(null);
   const badgesRef = useRef<HTMLDivElement>(null);
@@ -254,7 +255,7 @@ export function Header() {
   };
 
   return (
-    <header className="header" {...(!isMac && { 'data-tauri-drag-region': true })}>
+    <header className="header" {...(!isMac && !root.useNativeDecorations && { 'data-tauri-drag-region': true })}>
       <div className="header-left">
         <h1 className="header-logo">Notes</h1>
       </div>
@@ -370,7 +371,7 @@ export function Header() {
         >
           <Settings size={18} />
         </button>
-        {!isMac && (
+        {!isMac && !root.useNativeDecorations && (
           <div className="window-controls">
             <button
               className="window-control-btn"

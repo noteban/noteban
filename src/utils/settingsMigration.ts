@@ -61,6 +61,7 @@ export function migrateSettings(
       profiles: [migratedProfile],
       disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
       enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
+      useNativeDecorations: DEFAULT_APP_SETTINGS.useNativeDecorations,
     };
 
     return {
@@ -72,18 +73,31 @@ export function migrateSettings(
   // Handle version 2 -> 3 migration (add new app-wide settings)
   if (version === 2) {
     const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
+    return migrateSettings({
+      root: {
+        ...state.root,
+        version: 3,
+        disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
+        enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
+      },
+      settings: state.settings,
+    }, 3);
+  }
+
+  // Handle version 3 -> 4 migration (add useNativeDecorations)
+  if (version === 3) {
+    const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
     return {
       root: {
         ...state.root,
         version: SETTINGS_SCHEMA_VERSION,
-        disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
-        enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
+        useNativeDecorations: DEFAULT_APP_SETTINGS.useNativeDecorations,
       },
       settings: state.settings,
     };
   }
 
-  // Handle version 3+ (current format) - no migration needed
+  // Handle version 4+ (current format) - no migration needed
   const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
   return state;
 }
@@ -107,6 +121,7 @@ export function createInitialRoot(): AppSettingsRoot {
     profiles: [defaultProfile],
     disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
     enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
+    useNativeDecorations: DEFAULT_APP_SETTINGS.useNativeDecorations,
   };
 }
 

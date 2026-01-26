@@ -30,6 +30,7 @@ interface SettingsState {
   // App-wide settings
   setDisableUpdateChecks: (disable: boolean) => void;
   setEnableDebugLogging: (enable: boolean) => void;
+  setUseNativeDecorations: (use: boolean) => void;
 
   // Getters
   getActiveProfile: () => Profile | undefined;
@@ -193,6 +194,16 @@ export const useSettingsStore = create<SettingsState>()(
             root: {
               ...state.root,
               enableDebugLogging: enable,
+            },
+          }));
+        },
+
+        setUseNativeDecorations: (use: boolean) => {
+          debugLog.log('Setting useNativeDecorations:', use);
+          set((state) => ({
+            root: {
+              ...state.root,
+              useNativeDecorations: use,
             },
           }));
         },

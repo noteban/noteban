@@ -115,6 +115,7 @@ export function SettingsModal() {
   if (!showSettings) return null;
 
   const activeProfile = root.profiles.find(p => p.id === root.activeProfileId);
+  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
   return (
     <div className="settings-overlay">
@@ -304,22 +305,24 @@ export function SettingsModal() {
                 Write verbose debug information to a log file
               </p>
             </div>
-            <div className="settings-field">
-              <div className="settings-toggle-row">
-                <span>Use Native Window Decorations</span>
-                <label className="settings-toggle">
-                  <input
-                    type="checkbox"
-                    checked={root.useNativeDecorations}
-                    onChange={(e) => setUseNativeDecorations(e.target.checked)}
-                  />
-                  <span className="settings-toggle-track"></span>
-                </label>
+            {!isMac && (
+              <div className="settings-field">
+                <div className="settings-toggle-row">
+                  <span>Use Native Window Decorations</span>
+                  <label className="settings-toggle">
+                    <input
+                      type="checkbox"
+                      checked={root.useNativeDecorations}
+                      onChange={(e) => setUseNativeDecorations(e.target.checked)}
+                    />
+                    <span className="settings-toggle-track"></span>
+                  </label>
+                </div>
+                <p className="settings-field-hint">
+                  Hide the drag bar and window controls when using a tiling window manager
+                </p>
               </div>
-              <p className="settings-field-hint">
-                Hide the drag bar and window controls when using a tiling window manager
-              </p>
-            </div>
+            )}
           </div>
         </div>
       </div>

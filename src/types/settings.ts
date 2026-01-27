@@ -30,6 +30,7 @@ export type AppSettingsRoot = {
   profiles: Profile[];
   disableUpdateChecks: boolean;
   enableDebugLogging: boolean;
+  useNativeDecorations: boolean;
 };
 
 // Backward compatibility alias
@@ -51,6 +52,7 @@ export const DEFAULT_SETTINGS = DEFAULT_PROFILE_SETTINGS;
 export const DEFAULT_APP_SETTINGS = {
   disableUpdateChecks: false,
   enableDebugLogging: false,
+  useNativeDecorations: false,
 };
 
-export const SETTINGS_SCHEMA_VERSION = 3;
+export const SETTINGS_SCHEMA_VERSION = 4;

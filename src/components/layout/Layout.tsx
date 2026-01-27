@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { DragBar } from './DragBar';
 import { Header } from './Header';
 import { Sidebar } from './Sidebar';
 import { SidebarResizer } from './SidebarResizer';
@@ -19,6 +20,7 @@ export function Layout({ children }: LayoutProps) {
 
   return (
     <div className="layout">
+      <DragBar />
       <Header />
       <div className="layout-body">
         {showSidebar && (

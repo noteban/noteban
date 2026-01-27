@@ -5,6 +5,7 @@ import {
 } from '@codemirror/view';
 import type { DecorationSet, ViewUpdate } from '@codemirror/view';
 import type { Range } from '@codemirror/state';
+import { modifierKeyName, isModifierPressed } from '../../utils/platform';
 
 // Regex patterns for URLs
 // Raw URLs: https://example.com (excluding trailing punctuation)
@@ -131,13 +132,6 @@ function linkDecorations(view: EditorView): DecorationSet {
   return Decoration.set(decorations.sort((a, b) => a.from - b.from), true);
 }
 
-// Detect if on Mac (navigator.platform is deprecated, use userAgentData or userAgent)
-const isMac = typeof navigator !== 'undefined' && (
-  // @ts-expect-error userAgentData is not in all TS definitions yet
-  navigator.userAgentData?.platform === 'macOS' ||
-  /Mac|iPod|iPhone|iPad/.test(navigator.userAgent)
-);
-
 export const linkPlugin = ViewPlugin.fromClass(
   class {
     decorations: DecorationSet;
@@ -171,17 +165,14 @@ export const modifierClassPlugin = ViewPlugin.fromClass(
 
       this.handleKeyDown = (e: KeyboardEvent) => {
         // Check if the modifier key itself is pressed, or if it's held while pressing another key
-        const modifierKey = isMac ? 'Meta' : 'Control';
-        const modifierHeld = isMac ? e.metaKey : e.ctrlKey;
-        if ((e.key === modifierKey || modifierHeld) && !this.isActive) {
+        if ((e.key === modifierKeyName || isModifierPressed(e)) && !this.isActive) {
           this.isActive = true;
           this.updateLinkCursors();
         }
       };
 
       this.handleKeyUp = (e: KeyboardEvent) => {
-        const modifierKey = isMac ? 'Meta' : 'Control';
-        if (e.key === modifierKey && this.isActive) {
+        if (e.key === modifierKeyName && this.isActive) {
           this.isActive = false;
           this.updateLinkCursors();
         }
@@ -243,8 +234,7 @@ export const linkTheme = EditorView.baseTheme({
 // Separate DOM event handler for clicks - use mousedown to capture before other handlers
 export const linkClickHandler = EditorView.domEventHandlers({
   mousedown: (e, _view) => {
-    const modifierPressed = isMac ? e.metaKey : e.ctrlKey;
-    if (!modifierPressed) return false;
+    if (!isModifierPressed(e)) return false;
 
     // Walk up the DOM tree to find .cm-link element
     let target = e.target as HTMLElement | null;

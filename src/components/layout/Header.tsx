@@ -1,11 +1,15 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { Search, Kanban, FileText, Settings, X, Hash, Info } from 'lucide-react';
-import { useUIStore } from '../../stores';
+import { Search, Kanban, FileText, Settings, X, Hash, Info, Minus, Square, Copy } from 'lucide-react';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { useUIStore, useSettingsStore } from '../../stores';
 import { useTags } from '../../hooks';
 import { parseTagFilterExpression, hasTagFilter } from '../../utils/tagFilterParser';
 import type { TagFilterOperator } from '../../types/tagFilter';
 import { ProfileSwitcher } from './ProfileSwitcher';
+import { isMac, modifierKey } from '../../utils/platform';
 import './Header.css';
+
+const appWindow = getCurrentWindow();
 
 export function Header() {
   const {
@@ -23,23 +27,39 @@ export function Header() {
     setOperatorAtIndex,
     clearTagFilter,
   } = useUIStore();
+  const { root } = useSettingsStore();
   const { allTags, tagCounts } = useTags();
   const inputRef = useRef<HTMLInputElement>(null);
   const badgesRef = useRef<HTMLDivElement>(null);
   const [showTagDropdown, setShowTagDropdown] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [focusedTagIndex, setFocusedTagIndex] = useState<number | null>(null);
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-  const modifierKey = isMac ? '⌘' : 'Ctrl';
+  const [isMaximized, setIsMaximized] = useState(false);
+
+  // Track window maximized state
+  useEffect(() => {
+    const checkMaximized = async () => {
+      setIsMaximized(await appWindow.isMaximized());
+    };
+    checkMaximized();
+    const unlisten = appWindow.onResized(checkMaximized);
+    return () => { unlisten.then(fn => fn()); };
+  }, []);
+
+  const handleMinimize = () => appWindow.minimize();
+  const handleToggleMaximize = () => appWindow.toggleMaximize();
+  const handleClose = () => appWindow.close();
 
   const hasActiveFilter = hasTagFilter(tagFilter);
 
-  // Reset focused tag when filter changes
-  useEffect(() => {
+  // Reset focused tag when filter changes - derived during render
+  const [prevTagsLength, setPrevTagsLength] = useState(tagFilter.tags.length);
+  if (tagFilter.tags.length !== prevTagsLength) {
+    setPrevTagsLength(tagFilter.tags.length);
     if (focusedTagIndex !== null && focusedTagIndex >= tagFilter.tags.length) {
       setFocusedTagIndex(tagFilter.tags.length > 0 ? tagFilter.tags.length - 1 : null);
     }
-  }, [tagFilter.tags.length, focusedTagIndex]);
+  }
 
   // Global keyboard shortcut for Ctrl/Cmd+K
   const handleGlobalKeyDown = useCallback((e: KeyboardEvent) => {
@@ -65,14 +85,18 @@ export function Header() {
       .filter(tag => !tagFilter.tags.includes(tag));
   }, [searchQuery, allTags, tagFilter.tags]);
 
-  // Show dropdown when typing # and there are matching tags
-  useEffect(() => {
-    const hasHash = searchQuery.includes('#');
+  // Track previous values to derive dropdown state during render (React-recommended pattern)
+  const [prevDropdownDeps, setPrevDropdownDeps] = useState({ query: searchQuery, tagsLen: filteredTags.length });
+  
+  // Show dropdown when typing # and there are matching tags - derived during render
+  const hasHash = searchQuery.includes('#');
+  if (searchQuery !== prevDropdownDeps.query || filteredTags.length !== prevDropdownDeps.tagsLen) {
+    setPrevDropdownDeps({ query: searchQuery, tagsLen: filteredTags.length });
     setShowTagDropdown(hasHash && filteredTags.length > 0);
-    if (hasHash) {
+    if (hasHash && searchQuery !== prevDropdownDeps.query) {
       setSelectedIndex(0);
     }
-  }, [searchQuery, filteredTags.length]);
+  }
 
   // Auto-apply multi-tag filter expressions as user types
   useEffect(() => {
@@ -144,15 +168,17 @@ export function Header() {
           return;
         case 'Backspace':
         case 'Delete':
-          e.preventDefault();
-          const tagToRemove = tagFilter.tags[focusedTagIndex];
-          const newIndex = focusedTagIndex > 0 ? focusedTagIndex - 1 : (tagsCount > 1 ? 0 : null);
-          removeTagFromFilter(tagToRemove);
-          setFocusedTagIndex(newIndex);
-          if (newIndex === null) {
-            inputRef.current?.focus();
+          {
+            e.preventDefault();
+            const tagToRemove = tagFilter.tags[focusedTagIndex];
+            const newIndex = focusedTagIndex > 0 ? focusedTagIndex - 1 : (tagsCount > 1 ? 0 : null);
+            removeTagFromFilter(tagToRemove);
+            setFocusedTagIndex(newIndex);
+            if (newIndex === null) {
+              inputRef.current?.focus();
+            }
+            return;
           }
-          return;
         default:
           // Any other key returns focus to input
           if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
@@ -228,7 +254,7 @@ export function Header() {
   };
 
   return (
-    <header className="header">
+    <header className="header" {...(!isMac && !root.useNativeDecorations && { 'data-tauri-drag-region': true })}>
       <div className="header-left">
         <h1 className="header-logo">Notes</h1>
       </div>
@@ -344,6 +370,31 @@ export function Header() {
         >
           <Settings size={18} />
         </button>
+        {!isMac && !root.useNativeDecorations && (
+          <div className="window-controls">
+            <button
+              className="window-control-btn"
+              onClick={handleMinimize}
+              title="Minimize"
+            >
+              <Minus size={16} />
+            </button>
+            <button
+              className="window-control-btn"
+              onClick={handleToggleMaximize}
+              title={isMaximized ? "Restore" : "Maximize"}
+            >
+              {isMaximized ? <Copy size={14} /> : <Square size={14} />}
+            </button>
+            <button
+              className="window-control-btn close"
+              onClick={handleClose}
+              title="Close"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

@@ -4,6 +4,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore, useUIStore } from '../../stores';
 import { setWindowTitle } from '../../utils/windowTitle';
+import { isMac } from '../../utils/platform';
 import './SettingsModal.css';
 
 export function SettingsModal() {
@@ -19,6 +20,7 @@ export function SettingsModal() {
     switchProfile,
     setDisableUpdateChecks,
     setEnableDebugLogging,
+    setUseNativeDecorations,
   } = useSettingsStore();
   const { showSettings, setShowSettings } = useUIStore();
   const modalRef = useRef<HTMLDivElement>(null);
@@ -303,6 +305,24 @@ export function SettingsModal() {
                 Write verbose debug information to a log file
               </p>
             </div>
+            {!isMac && (
+              <div className="settings-field">
+                <div className="settings-toggle-row">
+                  <span>Use Native Window Decorations</span>
+                  <label className="settings-toggle">
+                    <input
+                      type="checkbox"
+                      checked={root.useNativeDecorations}
+                      onChange={(e) => setUseNativeDecorations(e.target.checked)}
+                    />
+                    <span className="settings-toggle-track"></span>
+                  </label>
+                </div>
+                <p className="settings-field-hint">
+                  Hide the drag bar and window controls when using a tiling window manager
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

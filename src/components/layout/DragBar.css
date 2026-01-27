@@ -1,0 +1,15 @@
+.drag-bar {
+  height: 14px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  cursor: grab;
+}
+
+.drag-bar:active {
+  cursor: grabbing;
+}
+
+.drag-bar:hover {
+  background-color: var(--ctp-surface0);
+}

@@ -242,3 +242,42 @@
 .header-search-clear:hover {
   color: var(--text-primary);
 }
+
+/* Window controls for CSD */
+.header[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+}
+
+.header-left,
+.header-center,
+.header-right {
+  -webkit-app-region: no-drag;
+}
+
+.window-controls {
+  display: flex;
+  margin-left: var(--spacing-sm);
+  border-left: 1px solid var(--border-color);
+  padding-left: var(--spacing-sm);
+}
+
+.window-control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.window-control-btn:hover {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.window-control-btn.close:hover {
+  background-color: var(--ctp-red);
+  color: var(--ctp-crust);
+}

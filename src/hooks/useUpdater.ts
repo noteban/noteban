@@ -4,8 +4,7 @@ import { relaunch } from '@tauri-apps/plugin-process';
 import { open } from '@tauri-apps/plugin-shell';
 import { useUpdateStore, useSettingsStore } from '../stores';
 import { debugLog } from '../utils/debugLogger';
-
-const isLinux = navigator.platform.toLowerCase().includes('linux');
+import { isLinux } from '../utils/platform';
 const GITHUB_RELEASES_URL = 'https://github.com/noteban/noteban/releases/latest';
 
 // Set to true to mock update availability in dev mode

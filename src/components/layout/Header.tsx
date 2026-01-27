@@ -6,7 +6,7 @@ import { useTags } from '../../hooks';
 import { parseTagFilterExpression, hasTagFilter } from '../../utils/tagFilterParser';
 import type { TagFilterOperator } from '../../types/tagFilter';
 import { ProfileSwitcher } from './ProfileSwitcher';
-import { isMac, modifierKey } from '../../utils/platform';
+import { isLinux, modifierKey } from '../../utils/platform';
 import './Header.css';
 
 const appWindow = getCurrentWindow();
@@ -254,7 +254,7 @@ export function Header() {
   };
 
   return (
-    <header className="header" {...(!isMac && !root.useNativeDecorations && { 'data-tauri-drag-region': true })}>
+    <header className="header" {...(isLinux && !root.useNativeDecorations && { 'data-tauri-drag-region': true })}>
       <div className="header-left">
         <h1 className="header-logo">Notes</h1>
       </div>
@@ -370,7 +370,7 @@ export function Header() {
         >
           <Settings size={18} />
         </button>
-        {!isMac && !root.useNativeDecorations && (
+        {isLinux && !root.useNativeDecorations && (
           <div className="window-controls">
             <button
               className="window-control-btn"

@@ -4,7 +4,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore, useUIStore } from '../../stores';
 import { setWindowTitle } from '../../utils/windowTitle';
-import { isMac } from '../../utils/platform';
+import { isLinux } from '../../utils/platform';
 import './SettingsModal.css';
 
 export function SettingsModal() {
@@ -305,7 +305,7 @@ export function SettingsModal() {
                 Write verbose debug information to a log file
               </p>
             </div>
-            {!isMac && (
+            {isLinux && (
               <div className="settings-field">
                 <div className="settings-toggle-row">
                   <span>Use Native Window Decorations</span>

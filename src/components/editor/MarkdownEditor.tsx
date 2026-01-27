@@ -136,8 +136,12 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
 
   // Focus editor when active note changes
   useEffect(() => {
-    if (activeNoteId && editorRef.current?.view) {
-      editorRef.current.view.focus();
+    if (activeNoteId) {
+      // Use requestAnimationFrame to ensure CodeMirror has mounted
+      // This handles the case where we go from no note to having a note
+      requestAnimationFrame(() => {
+        editorRef.current?.view?.focus();
+      });
     }
   }, [activeNoteId]);
 

@@ -6,7 +6,7 @@ import { useTags } from '../../hooks';
 import { parseTagFilterExpression, hasTagFilter } from '../../utils/tagFilterParser';
 import type { TagFilterOperator } from '../../types/tagFilter';
 import { ProfileSwitcher } from './ProfileSwitcher';
-import { isMac, isLinux, modifierKey } from '../../utils/platform';
+import { isLinux, modifierKey } from '../../utils/platform';
 import './Header.css';
 
 const appWindow = getCurrentWindow();

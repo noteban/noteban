@@ -6,6 +6,7 @@ import { useTags } from '../../hooks';
 import { parseTagFilterExpression, hasTagFilter } from '../../utils/tagFilterParser';
 import type { TagFilterOperator } from '../../types/tagFilter';
 import { ProfileSwitcher } from './ProfileSwitcher';
+import { isMac, modifierKey } from '../../utils/platform';
 import './Header.css';
 
 const appWindow = getCurrentWindow();
@@ -34,8 +35,6 @@ export function Header() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [focusedTagIndex, setFocusedTagIndex] = useState<number | null>(null);
   const [isMaximized, setIsMaximized] = useState(false);
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
-  const modifierKey = isMac ? '⌘' : 'Ctrl';
 
   // Track window maximized state
   useEffect(() => {

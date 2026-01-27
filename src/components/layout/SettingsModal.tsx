@@ -4,6 +4,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore, useUIStore } from '../../stores';
 import { setWindowTitle } from '../../utils/windowTitle';
+import { isMac } from '../../utils/platform';
 import './SettingsModal.css';
 
 export function SettingsModal() {
@@ -115,7 +116,6 @@ export function SettingsModal() {
   if (!showSettings) return null;
 
   const activeProfile = root.profiles.find(p => p.id === root.activeProfileId);
-  const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
 
   return (
     <div className="settings-overlay">

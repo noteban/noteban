@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect } from 'react';
 import { check, type Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { open } from '@tauri-apps/plugin-shell';
@@ -9,6 +9,9 @@ const GITHUB_RELEASES_URL = 'https://github.com/noteban/noteban/releases/latest'
 
 // Set to true to mock update availability in dev mode
 const DEV_MOCK_UPDATE = false;
+
+// Module-level variable to store the Update object so it's shared across all hook instances
+let updateObject: Update | null = null;
 
 export function useUpdater() {
   const {
@@ -26,7 +29,6 @@ export function useUpdater() {
     dismissUpdate,
   } = useUpdateStore();
 
-  const updateRef = useRef<Update | null>(null);
   const disableUpdateChecks = useSettingsStore((state) => state.root.disableUpdateChecks);
 
   const checkForUpdates = useCallback(async () => {
@@ -53,7 +55,7 @@ export function useUpdater() {
 
       if (update) {
         debugLog.log('Update available:', { version: update.version, date: update.date });
-        updateRef.current = update;
+        updateObject = update;
         setUpdateAvailable({
           version: update.version,
           notes: update.body || 'See release notes on GitHub.',
@@ -61,7 +63,7 @@ export function useUpdater() {
         });
       } else {
         debugLog.log('No update available, app is up to date');
-        updateRef.current = null;
+        updateObject = null;
         setUpdateAvailable(null);
       }
     } catch (err) {
@@ -79,7 +81,7 @@ export function useUpdater() {
       return;
     }
 
-    if (!updateRef.current) {
+    if (!updateObject) {
       setError('No update available');
       return;
     }
@@ -92,7 +94,7 @@ export function useUpdater() {
       let downloaded = 0;
       let contentLength = 0;
 
-      await updateRef.current.downloadAndInstall((event) => {
+      await updateObject.downloadAndInstall((event) => {
         switch (event.event) {
           case 'Started':
             contentLength = event.data.contentLength || 0;

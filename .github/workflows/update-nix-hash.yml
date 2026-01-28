@@ -33,7 +33,7 @@ jobs:
 
           # Compute SHA256 and convert to SRI format (base64)
           SHA256=$(sha256sum noteban.AppImage | cut -d' ' -f1)
-          SRI_HASH="sha256-$(echo -n "$SHA256" | xxd -r -p | base64 | tr -d '\n')"
+          SRI_HASH="sha256-$(echo "$SHA256" | xxd -r -p | base64 -w 0)"
 
           echo "SHA256: $SHA256"
           echo "SRI Hash: $SRI_HASH"

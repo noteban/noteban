@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      actions: write
 
     steps:
       - uses: actions/checkout@v4
@@ -36,3 +37,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v$VERSION" -m "Version $VERSION" ${{ github.event.pull_request.merge_commit_sha }}
           git push origin "v$VERSION"
+
+      - name: Trigger build workflow
+        run: |
+          gh workflow run build.yml -f version=${{ steps.version.outputs.VERSION }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

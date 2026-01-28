@@ -141,7 +141,7 @@ fn get_file_mtime(path: &PathBuf) -> Result<i64, String> {
 
 /// Atomically write content to a file using a temp file and rename
 fn atomic_write(path: &PathBuf, content: &str) -> Result<(), String> {
-    let temp_path = path.with_extension("md.tmp");
+    let temp_path = path.with_extension(format!("md.tmp.{}", Uuid::new_v4()));
 
     // Write to temporary file
     fs::write(&temp_path, content)

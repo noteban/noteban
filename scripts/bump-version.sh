@@ -114,12 +114,16 @@ git push -u origin "$BRANCH_NAME"
 
 # Create PR using gh CLI
 if command -v gh &> /dev/null; then
-    PR_URL=$(gh pr create \
+    if PR_URL=$(gh pr create \
         --title "Release v$VERSION" \
         --body "Bumps version to $VERSION" \
         --label "release" \
-        --base main)
-    echo -e "${GREEN}Pull request created: $PR_URL${NC}"
+        --base main 2>&1); then
+        echo -e "${GREEN}Pull request created: $PR_URL${NC}"
+    else
+        echo -e "${RED}Failed to create PR: $PR_URL${NC}"
+        exit 1
+    fi
 else
     echo -e "${YELLOW}gh CLI not found. Create the PR manually.${NC}"
 fi

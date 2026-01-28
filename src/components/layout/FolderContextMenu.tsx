@@ -107,7 +107,11 @@ export function FolderContextMenu({
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                mode === 'create' ? handleCreateFolder() : handleRename();
+                if (mode === 'create') {
+                  handleCreateFolder();
+                } else {
+                  handleRename();
+                }
               } else if (e.key === 'Escape') {
                 onClose();
               }

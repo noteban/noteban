@@ -112,7 +112,7 @@ export const tagPlugin = ViewPlugin.fromClass(
   {
     decorations: (v) => v.decorations,
     eventHandlers: {
-      click: (e, _view) => {
+      click: (e) => {
         const target = e.target as HTMLElement;
         if (target.classList.contains('cm-hashtag')) {
           e.preventDefault();

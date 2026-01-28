@@ -95,6 +95,22 @@ pub struct IncrementalUpdateResult {
 /// Record a file write for self-save detection
 fn record_write(file_path: &str, state: &State<AppState>) {
     let mut writes = state.recent_writes.lock().unwrap();
+
+    // Cap at 1000 entries to prevent memory issues
+    if writes.len() >= 1000 {
+        // Remove oldest entries
+        let cutoff = Instant::now() - Duration::from_secs(5);
+        writes.retain(|_, time| *time > cutoff);
+
+        // If still over limit, clear oldest half
+        if writes.len() >= 1000 {
+            let mut entries: Vec<_> = writes.drain().collect();
+            entries.sort_by(|a, b| b.1.cmp(&a.1));
+            entries.truncate(500);
+            writes.extend(entries);
+        }
+    }
+
     writes.insert(file_path.to_string(), Instant::now());
 
     // Cleanup old entries (older than 5 seconds)
@@ -121,6 +137,55 @@ fn get_file_mtime(path: &PathBuf) -> Result<i64, String> {
         .map_err(|_| "Invalid mtime".to_string())?
         .as_secs() as i64;
     Ok(mtime)
+}
+
+/// Atomically write content to a file using a temp file and rename
+fn atomic_write(path: &PathBuf, content: &str) -> Result<(), String> {
+    let temp_path = path.with_extension(format!("md.tmp.{}", Uuid::new_v4()));
+
+    // Write to temporary file
+    fs::write(&temp_path, content)
+        .map_err(|e| format!("Failed to write temp file: {}", e))?;
+
+    // Atomically rename temp to target
+    fs::rename(&temp_path, path).map_err(|e| {
+        // Clean up temp file on failure
+        let _ = fs::remove_file(&temp_path);
+        format!("Failed to rename temp file: {}", e)
+    })
+}
+
+/// Validate that a path is within the base directory (prevents symlink attacks)
+fn validate_path_within_base(path: &PathBuf, base: &PathBuf) -> Result<PathBuf, String> {
+    let canonical_path = path
+        .canonicalize()
+        .map_err(|e| format!("Failed to resolve path: {}", e))?;
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|e| format!("Failed to resolve base path: {}", e))?;
+
+    if !canonical_path.starts_with(&canonical_base) {
+        return Err("Path is outside notes directory".to_string());
+    }
+
+    Ok(canonical_path)
+}
+
+/// Sanitize a single tag to only allow safe characters
+fn sanitize_tag(tag: &str) -> String {
+    tag.chars()
+        .filter(|c| c.is_alphanumeric() || *c == '-' || *c == '_' || *c == '/')
+        .collect::<String>()
+        .trim_matches(|c| c == '-' || c == '_')
+        .to_string()
+}
+
+/// Sanitize a list of tags
+fn sanitize_tags(tags: Vec<String>) -> Vec<String> {
+    tags.into_iter()
+        .map(|t| sanitize_tag(&t))
+        .filter(|t| !t.is_empty())
+        .collect()
 }
 
 fn parse_note(file_path: &PathBuf) -> Result<Note, String> {
@@ -235,6 +300,8 @@ pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Not
     let now = Utc::now();
     let id = Uuid::new_v4().to_string();
 
+    let tags = sanitize_tags(input.tags.clone().unwrap_or_default());
+
     let frontmatter = NoteFrontmatter {
         id: id.clone(),
         title: input.title.clone(),
@@ -242,7 +309,7 @@ pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Not
         modified: now,
         date: input.date,
         column: input.column.unwrap_or_else(|| "todo".to_string()),
-        tags: input.tags.clone().unwrap_or_default(),
+        tags,
         order: 0,
     };
 
@@ -277,8 +344,7 @@ pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Not
     // Record write for self-save detection
     record_write(&file_path_str, &state);
 
-    fs::write(&file_path, &file_content)
-        .map_err(|e| format!("Failed to write note: {}", e))?;
+    atomic_write(&file_path, &file_content)?;
 
     let note = Note {
         frontmatter,
@@ -322,7 +388,7 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
         note.frontmatter.column = column;
     }
     if let Some(tags) = input.tags {
-        note.frontmatter.tags = tags;
+        note.frontmatter.tags = sanitize_tags(tags);
     }
     if let Some(order) = input.order {
         note.frontmatter.order = order;
@@ -389,8 +455,7 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
     // Record write for self-save detection
     record_write(&current_path_str, &state);
 
-    fs::write(&current_path, &file_content)
-        .map_err(|e| format!("Failed to write note: {}", e))?;
+    atomic_write(&current_path, &file_content)?;
 
     note.file_path = current_path_str.clone();
 
@@ -735,8 +800,9 @@ pub fn process_file_changes(
                     continue;
                 }
 
-                // Skip files outside notes directory
-                if !path.starts_with(&base_path) {
+                // Skip files outside notes directory (with symlink protection)
+                if validate_path_within_base(&path, &base_path).is_err() {
+                    log::warn!("Skipping file outside notes directory: {}", change.file_path);
                     continue;
                 }
 

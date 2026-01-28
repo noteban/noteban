@@ -61,7 +61,7 @@ export function KanbanCard({ note, isDragging, onClick }: KanbanCardProps) {
       .filter(line => !line.match(/^[\s]*[-*]\s*\[[ xX]\]/))
       .join(' ')
       .slice(0, 80)
-      .replace(/[#*_\[\]]/g, '')
+      .replace(/[#*_[\]]/g, '')
       .trim();
   }, [note.content, tasks.length]);
 

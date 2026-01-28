@@ -68,7 +68,7 @@ function App() {
         );
         setWindowTitle(activeProfile?.name ?? null, currentState.root.profiles.length > 1);
       } catch (error) {
-        console.error('Failed to initialize window:', error);
+        debugLog.error('Failed to initialize window:', error);
       }
     };
     initializeWindow();
@@ -163,7 +163,6 @@ function App() {
         debugLog.log('File watcher started successfully');
       } catch (error) {
         debugLog.error('Failed to start file watcher:', error);
-        console.error('Failed to watch directory:', error);
       }
     };
 
@@ -193,7 +192,7 @@ function App() {
         setNotesDirectory(selected);
       }
     } catch (error) {
-      console.error('Failed to select folder:', error);
+      debugLog.error('Failed to select folder:', error);
     } finally {
       setIsSelectingFolder(false);
     }

@@ -203,7 +203,7 @@ export const modifierClassPlugin = ViewPlugin.fromClass(
       });
     }
 
-    update(_update: ViewUpdate) {
+    update() {
       // Re-apply cursor styles when document changes (new links may appear)
       if (this.isActive) {
         this.updateLinkCursors();

@@ -95,7 +95,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
       debugLog.log(`File changes result: ${result.updated_notes.length} updated, ${result.removed_paths.length} removed`);
 
       set((state) => {
-        let newNotes = [...state.notes];
+        const newNotes = [...state.notes];
         const newInlineTags = new Map(state.inlineTags);
 
         // Remove deleted notes

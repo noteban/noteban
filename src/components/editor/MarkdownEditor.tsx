@@ -16,6 +16,7 @@ import { linkPlugin, linkTheme, modifierClassPlugin, linkClickHandler } from './
 import { imagePlugin } from './imagePlugin';
 import { listContinuationKeymap } from './listContinuationPlugin';
 import { useTags } from '../../hooks/useTags';
+import { debugLog } from '../../utils/debugLogger';
 import './MarkdownEditor.css';
 
 // Catppuccin Mocha theme for CodeMirror
@@ -164,7 +165,7 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
           title: title !== activeNote.frontmatter.title ? title : undefined,
         });
       } catch (error) {
-        console.error('Failed to save note:', error);
+        debugLog.error('Failed to save note:', error);
       }
     }, [activeNote, updateNote]),
     settings.autoSaveDelay

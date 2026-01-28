@@ -1,4 +1,5 @@
 use crate::cache::CacheDb;
+use crate::lock_or_err;
 use crate::utils::{compute_content_hash, extract_inline_tags};
 use crate::AppState;
 use chrono::{DateTime, Utc};
@@ -94,7 +95,13 @@ pub struct IncrementalUpdateResult {
 
 /// Record a file write for self-save detection
 fn record_write(file_path: &str, state: &State<AppState>) {
-    let mut writes = state.recent_writes.lock().unwrap();
+    let mut writes = match state.recent_writes.lock() {
+        Ok(w) => w,
+        Err(_) => {
+            log::warn!("Failed to acquire recent_writes lock");
+            return;
+        }
+    };
 
     // Cap at 1000 entries to prevent memory issues
     if writes.len() >= 1000 {
@@ -119,7 +126,10 @@ fn record_write(file_path: &str, state: &State<AppState>) {
 
 /// Check if a file was recently written by us
 fn is_recent_write(file_path: &str, state: &State<AppState>) -> bool {
-    let writes = state.recent_writes.lock().unwrap();
+    let writes = match state.recent_writes.lock() {
+        Ok(w) => w,
+        Err(_) => return false, // Assume not recent if lock fails
+    };
     if let Some(write_time) = writes.get(file_path) {
         write_time.elapsed() < Duration::from_secs(2)
     } else {
@@ -356,10 +366,14 @@ pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Not
     let inline_tags = extract_inline_tags(&note.content);
 
     // Update cache
-    if let Some(cache) = state.cache.lock().unwrap().as_ref() {
-        let hash = compute_content_hash(&file_content);
-        let mtime = get_file_mtime(&file_path).unwrap_or(0);
-        let _ = cache.upsert_note(&note, &hash, mtime, &inline_tags);
+    if let Ok(cache_lock) = state.cache.lock() {
+        if let Some(cache) = cache_lock.as_ref() {
+            let hash = compute_content_hash(&file_content);
+            let mtime = get_file_mtime(&file_path).unwrap_or(0);
+            if let Err(e) = cache.upsert_note(&note, &hash, mtime, &inline_tags) {
+                log::warn!("Cache update failed for new note: {}", e);
+            }
+        }
     }
 
     Ok(NoteWithTags { note, inline_tags })
@@ -442,8 +456,12 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
                 }
 
                 // Remove old path from cache
-                if let Some(cache) = state.cache.lock().unwrap().as_ref() {
-                    let _ = cache.remove_note(&old_file_path);
+                if let Ok(cache_lock) = state.cache.lock() {
+                    if let Some(cache) = cache_lock.as_ref() {
+                        if let Err(e) = cache.remove_note(&old_file_path) {
+                            log::warn!("Cache remove failed for renamed note: {}", e);
+                        }
+                    }
                 }
             }
         }
@@ -463,10 +481,14 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
     let inline_tags = extract_inline_tags(&note.content);
 
     // Update cache
-    if let Some(cache) = state.cache.lock().unwrap().as_ref() {
-        let hash = compute_content_hash(&file_content);
-        let mtime = get_file_mtime(&current_path).unwrap_or(0);
-        let _ = cache.upsert_note(&note, &hash, mtime, &inline_tags);
+    if let Ok(cache_lock) = state.cache.lock() {
+        if let Some(cache) = cache_lock.as_ref() {
+            let hash = compute_content_hash(&file_content);
+            let mtime = get_file_mtime(&current_path).unwrap_or(0);
+            if let Err(e) = cache.upsert_note(&note, &hash, mtime, &inline_tags) {
+                log::warn!("Cache update failed for note: {}", e);
+            }
+        }
     }
 
     Ok(NoteWithTags { note, inline_tags })
@@ -505,8 +527,12 @@ pub fn delete_note(file_path: String, state: State<AppState>) -> Result<(), Stri
     }
 
     // Remove from cache
-    if let Some(cache) = state.cache.lock().unwrap().as_ref() {
-        let _ = cache.remove_note(&file_path);
+    if let Ok(cache_lock) = state.cache.lock() {
+        if let Some(cache) = cache_lock.as_ref() {
+            if let Err(e) = cache.remove_note(&file_path) {
+                log::warn!("Cache remove failed for deleted note: {}", e);
+            }
+        }
     }
 
     Ok(())
@@ -633,19 +659,27 @@ pub fn move_note(file_path: String, target_folder: String, state: State<AppState
     }
 
     // Remove old path from cache
-    if let Some(cache) = state.cache.lock().unwrap().as_ref() {
-        let _ = cache.remove_note(&file_path);
+    if let Ok(cache_lock) = state.cache.lock() {
+        if let Some(cache) = cache_lock.as_ref() {
+            if let Err(e) = cache.remove_note(&file_path) {
+                log::warn!("Cache remove failed for moved note: {}", e);
+            }
+        }
     }
 
     let note = parse_note(&final_dest)?;
 
     // Add new path to cache
-    if let Some(cache) = state.cache.lock().unwrap().as_ref() {
-        let content = fs::read_to_string(&final_dest).unwrap_or_else(|_| note.content.clone());
-        let hash = compute_content_hash(&content);
-        let mtime = get_file_mtime(&final_dest).unwrap_or(0);
-        let inline_tags = extract_inline_tags(&note.content);
-        let _ = cache.upsert_note(&note, &hash, mtime, &inline_tags);
+    if let Ok(cache_lock) = state.cache.lock() {
+        if let Some(cache) = cache_lock.as_ref() {
+            let content = fs::read_to_string(&final_dest).unwrap_or_else(|_| note.content.clone());
+            let hash = compute_content_hash(&content);
+            let mtime = get_file_mtime(&final_dest).unwrap_or(0);
+            let inline_tags = extract_inline_tags(&note.content);
+            if let Err(e) = cache.upsert_note(&note, &hash, mtime, &inline_tags) {
+                log::warn!("Cache update failed for moved note: {}", e);
+            }
+        }
     }
 
     Ok(note)
@@ -661,7 +695,7 @@ pub fn initialize_cache(profile_id: String, state: State<AppState>) -> Result<()
         cache.invalidate_all()?;
     }
 
-    let mut cache_lock = state.cache.lock().unwrap();
+    let mut cache_lock = lock_or_err(&state.cache)?;
     *cache_lock = Some(cache);
     Ok(())
 }
@@ -682,7 +716,7 @@ pub fn list_notes_cached(
         });
     }
 
-    let cache_lock = state.cache.lock().unwrap();
+    let cache_lock = lock_or_err(&state.cache)?;
     let cache = cache_lock.as_ref();
 
     let mut notes = Vec::new();
@@ -743,7 +777,9 @@ pub fn list_notes_cached(
                         let content =
                             fs::read_to_string(&path_buf).unwrap_or_else(|_| note.content.clone());
                         let hash = compute_content_hash(&content);
-                        let _ = c.upsert_note(&note, &hash, mtime, &inline_tags);
+                        if let Err(e) = c.upsert_note(&note, &hash, mtime, &inline_tags) {
+                            log::warn!("Cache update failed during list: {}", e);
+                        }
                     }
 
                     notes.push(NoteWithTags { note, inline_tags });
@@ -755,7 +791,9 @@ pub fn list_notes_cached(
 
     // Remove stale cache entries
     if let Some(c) = cache {
-        let _ = c.remove_notes_not_in(&seen_paths);
+        if let Err(e) = c.remove_notes_not_in(&seen_paths) {
+            log::warn!("Failed to remove stale cache entries: {}", e);
+        }
     }
 
     // Sort by modified date (newest first)
@@ -772,7 +810,7 @@ pub fn process_file_changes(
     state: State<AppState>,
 ) -> Result<IncrementalUpdateResult, String> {
     let base_path = PathBuf::from(&notes_dir);
-    let cache_lock = state.cache.lock().unwrap();
+    let cache_lock = lock_or_err(&state.cache)?;
     let cache = cache_lock.as_ref();
 
     let mut updated_notes = Vec::new();
@@ -788,7 +826,9 @@ pub fn process_file_changes(
         match change.event_type.as_str() {
             "remove" => {
                 if let Some(c) = cache {
-                    let _ = c.remove_note(&change.file_path);
+                    if let Err(e) = c.remove_note(&change.file_path) {
+                        log::warn!("Cache remove failed for file change: {}", e);
+                    }
                 }
                 removed_paths.push(change.file_path);
             }
@@ -826,7 +866,9 @@ pub fn process_file_changes(
                             let content = fs::read_to_string(&path)
                                 .unwrap_or_else(|_| note.content.clone());
                             let hash = compute_content_hash(&content);
-                            let _ = c.upsert_note(&note, &hash, mtime, &inline_tags);
+                            if let Err(e) = c.upsert_note(&note, &hash, mtime, &inline_tags) {
+                                log::warn!("Cache update failed for file change: {}", e);
+                            }
                         }
 
                         updated_notes.push(NoteWithTags {

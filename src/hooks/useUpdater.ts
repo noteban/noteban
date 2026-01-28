@@ -68,7 +68,6 @@ export function useUpdater() {
       }
     } catch (err) {
       debugLog.error('Failed to check for updates:', err);
-      console.error('Failed to check for updates:', err);
       setError(err instanceof Error ? err.message : 'Failed to check for updates');
     } finally {
       setChecking(false);
@@ -114,7 +113,7 @@ export function useUpdater() {
 
       await relaunch();
     } catch (err) {
-      console.error('Failed to download/install update:', err);
+      debugLog.error('Failed to download/install update:', err);
       setError(err instanceof Error ? err.message : 'Failed to install update');
     } finally {
       setDownloading(false);

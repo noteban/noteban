@@ -4,6 +4,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore, useUIStore } from '../../stores';
 import { setWindowTitle } from '../../utils/windowTitle';
+import { debugLog } from '../../utils/debugLogger';
 import { isLinux } from '../../utils/platform';
 import './SettingsModal.css';
 
@@ -64,7 +65,7 @@ export function SettingsModal() {
         setNotesDirectory(selected);
       }
     } catch (error) {
-      console.error('Failed to select folder:', error);
+      debugLog.error('Failed to select folder:', error);
     }
   };
 
@@ -109,7 +110,7 @@ export function SettingsModal() {
     try {
       await invoke('open_profile_in_new_window', { profileId });
     } catch (error) {
-      console.error('Failed to open profile in new window:', error);
+      debugLog.error('Failed to open profile in new window:', error);
     }
   };
 

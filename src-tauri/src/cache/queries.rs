@@ -13,7 +13,10 @@ pub struct CachedNote {
 impl CacheDb {
     /// Check if a file needs re-parsing based on mtime
     pub fn needs_update(&self, file_path: &str, current_mtime: i64) -> bool {
-        let conn = self.conn.lock().unwrap();
+        let conn = match self.conn.lock() {
+            Ok(c) => c,
+            Err(_) => return true, // Assume update needed if lock fails
+        };
         let result: Result<i64, _> = conn.query_row(
             "SELECT file_mtime FROM notes WHERE file_path = ?",
             [file_path],
@@ -28,7 +31,10 @@ impl CacheDb {
 
     /// Get a cached note by file path
     pub fn get_note(&self, file_path: &str) -> Result<Option<CachedNote>, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| "Cache lock error".to_string())?;
 
         let note_result = conn.query_row(
             "SELECT id, file_path, title, created, modified, date, column_name, order_num, content
@@ -115,7 +121,10 @@ impl CacheDb {
         file_mtime: i64,
         inline_tags: &[String],
     ) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| "Cache lock error".to_string())?;
         let now = Utc::now().timestamp();
 
         conn.execute(
@@ -199,7 +208,10 @@ impl CacheDb {
 
     /// Remove a note from cache by file path
     pub fn remove_note(&self, file_path: &str) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| "Cache lock error".to_string())?;
         conn.execute("DELETE FROM notes WHERE file_path = ?", [file_path])
             .map_err(|e| format!("Failed to remove note from cache: {}", e))?;
         Ok(())
@@ -207,7 +219,10 @@ impl CacheDb {
 
     /// Remove notes not in the given set of paths
     pub fn remove_notes_not_in(&self, valid_paths: &HashSet<String>) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| "Cache lock error".to_string())?;
 
         // Get all cached paths
         let mut stmt = conn
@@ -233,7 +248,10 @@ impl CacheDb {
 
     /// Get all cached notes
     pub fn get_all_notes(&self) -> Result<Vec<CachedNote>, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| "Cache lock error".to_string())?;
 
         let mut stmt = conn
             .prepare(
@@ -278,15 +296,12 @@ impl CacheDb {
             .collect();
 
         drop(stmt);
-        drop(conn);
 
-        // Get tags for each note
+        // Get tags for each note (keep lock held to avoid re-acquisition per note)
         let mut result = Vec::new();
         for mut note in notes {
-            let conn = self.conn.lock().unwrap();
-
             // Get frontmatter tags
-            let mut stmt = conn
+            let mut frontmatter_stmt = conn
                 .prepare(
                     "SELECT t.name FROM tags t
                      JOIN note_tags nt ON t.id = nt.tag_id
@@ -294,7 +309,7 @@ impl CacheDb {
                 )
                 .map_err(|e| format!("Failed to prepare tags query: {}", e))?;
 
-            let frontmatter_tags: Vec<String> = stmt
+            let frontmatter_tags: Vec<String> = frontmatter_stmt
                 .query_map([&note.frontmatter.id], |row| row.get(0))
                 .map_err(|e| format!("Failed to query frontmatter tags: {}", e))?
                 .filter_map(|r| r.ok())
@@ -303,7 +318,7 @@ impl CacheDb {
             note.frontmatter.tags = frontmatter_tags;
 
             // Get inline tags
-            let mut stmt = conn
+            let mut inline_stmt = conn
                 .prepare(
                     "SELECT t.name FROM tags t
                      JOIN note_tags nt ON t.id = nt.tag_id
@@ -311,7 +326,7 @@ impl CacheDb {
                 )
                 .map_err(|e| format!("Failed to prepare inline tags query: {}", e))?;
 
-            let inline_tags: Vec<String> = stmt
+            let inline_tags: Vec<String> = inline_stmt
                 .query_map([&note.frontmatter.id], |row| row.get(0))
                 .map_err(|e| format!("Failed to query inline tags: {}", e))?
                 .filter_map(|r| r.ok())

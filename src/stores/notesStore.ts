@@ -164,12 +164,18 @@ export const useNotesStore = create<NotesState>((set, get) => ({
 
   deleteNote: async (filePath: string) => {
     await invoke('delete_note', { filePath });
-    set(state => ({
-      notes: state.notes.filter(n => n.file_path !== filePath),
-      activeNoteId: state.notes.find(n => n.file_path === filePath)?.frontmatter.id === state.activeNoteId
-        ? null
-        : state.activeNoteId,
-    }));
+    set(state => {
+      const noteToDelete = state.notes.find(n => n.file_path === filePath);
+      const newInlineTags = new Map(state.inlineTags);
+      if (noteToDelete) {
+        newInlineTags.delete(noteToDelete.frontmatter.id);
+      }
+      return {
+        notes: state.notes.filter(n => n.file_path !== filePath),
+        inlineTags: newInlineTags,
+        activeNoteId: noteToDelete?.frontmatter.id === state.activeNoteId ? null : state.activeNoteId,
+      };
+    });
   },
 
   moveNote: async (filePath: string, targetFolder: string) => {

@@ -3,17 +3,12 @@
 , fetchurl
 , gtk3
 , libayatana-appindicator
-, pkgs
+, webkitgtk_4_1
 }:
 
 let
   pname = "noteban";
   version = "3.2.6";
-  webkitgtk =
-    let
-      candidate = lib.tryEval pkgs.webkitgtk_4_0;
-    in
-    if candidate.success then candidate.value else pkgs.webkitgtk_4_1;
 
   src = fetchurl {
     url = "https://github.com/noteban/noteban/releases/download/v${version}/Noteban_${version}_amd64.AppImage";
@@ -28,7 +23,7 @@ appimageTools.wrapType2 {
   extraPkgs = _: [
     gtk3
     libayatana-appindicator
-    webkitgtk
+    webkitgtk_4_1
   ];
 
   extraInstallCommands = ''

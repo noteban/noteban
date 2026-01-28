@@ -3,12 +3,14 @@
 , fetchurl
 , gtk3
 , libayatana-appindicator
-, webkitgtk_4_1
 }:
 
 let
   pname = "noteban";
   version = "3.2.6";
+  pinnedPkgs = import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-24.05.tar.gz") { };
+  # Pinned to WebKitGTK 4.0 to avoid EGL_BAD_PARAMETER regression (see gitbutler#5282).
+  webkitgtk = pinnedPkgs.webkitgtk_4_0;
 
   src = fetchurl {
     url = "https://github.com/noteban/noteban/releases/download/v${version}/Noteban_${version}_amd64.AppImage";
@@ -23,7 +25,7 @@ appimageTools.wrapType2 {
   extraPkgs = _: [
     gtk3
     libayatana-appindicator
-    webkitgtk_4_1
+    webkitgtk
   ];
 
   extraInstallCommands = ''

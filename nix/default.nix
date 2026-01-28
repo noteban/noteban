@@ -9,7 +9,7 @@ let
 
   src = fetchurl {
     url = "https://github.com/noteban/noteban/releases/download/v${version}/Noteban_${version}_amd64.AppImage";
-    hash = "sha256-Z9Q6nv/1m22VVo2+yWpHMl5iM0osRriILLG1vWHY5MQ=";
+    hash = "sha256-iurrtvjU5X0J/yAT0qzaVIWD5QMPzcC6YRgmQecRwBg=";
   };
 
   appimageContents = appimageTools.extractType2 { inherit pname version src; };

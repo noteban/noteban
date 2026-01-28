@@ -12,6 +12,7 @@ import { ContextMenu } from './ContextMenu';
 import { useTags } from '../../hooks/useTags';
 import { matchesTagFilter } from '../../utils/tagFilterMatcher';
 import { hasTagFilter } from '../../utils/tagFilterParser';
+import { debugLog } from '../../utils/debugLogger';
 import type { Folder as FolderType } from '../../types/folder';
 import type { Note } from '../../types/note';
 import './FolderTree.css';
@@ -125,7 +126,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     try {
       await deleteNote(noteContextMenu.note.file_path);
     } catch (error) {
-      console.error('Failed to delete note:', error);
+      debugLog.error('Failed to delete note:', error);
     }
     setNoteContextMenu(null);
   };
@@ -145,7 +146,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
           title: renameValue.trim(),
         });
       } catch (error) {
-        console.error('Failed to rename note:', error);
+        debugLog.error('Failed to rename note:', error);
       }
     }
     setRenamingNoteId(null);

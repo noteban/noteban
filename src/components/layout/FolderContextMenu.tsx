@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { FolderPlus, Pencil, Trash2 } from 'lucide-react';
 import { useFolderStore, useSettingsStore, useNotesStore } from '../../stores';
+import { debugLog } from '../../utils/debugLogger';
 import type { Folder } from '../../types/folder';
 import './ContextMenu.css';
 
@@ -56,7 +57,7 @@ export function FolderContextMenu({
       );
       onClose();
     } catch (error) {
-      console.error('Failed to create folder:', error);
+      debugLog.error('Failed to create folder:', error);
     }
   };
 
@@ -69,7 +70,7 @@ export function FolderContextMenu({
       }
       onClose();
     } catch (error) {
-      console.error('Failed to rename folder:', error);
+      debugLog.error('Failed to rename folder:', error);
     }
   };
 
@@ -83,7 +84,7 @@ export function FolderContextMenu({
         }
         onClose();
       } catch (error) {
-        console.error('Failed to delete folder:', error);
+        debugLog.error('Failed to delete folder:', error);
       }
     }
   };

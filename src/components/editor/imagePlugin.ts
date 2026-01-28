@@ -12,6 +12,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { mkdir, writeFile, readFile } from '@tauri-apps/plugin-fs';
 import { readImage } from '@tauri-apps/plugin-clipboard-manager';
 import { v4 as uuidv4 } from 'uuid';
+import { debugLog } from '../../utils/debugLogger';
 
 // Facet to pass the note file path to the plugin
 export const noteFilePath = Facet.define<string, string>({
@@ -69,7 +70,7 @@ async function saveImageToAttachments(
     // Return relative path for markdown
     return `${attachmentsBasename}/${filename}`;
   } catch (error) {
-    console.error('Failed to save image:', error);
+    debugLog.error('Failed to save image:', error);
     return null;
   }
 }
@@ -236,7 +237,7 @@ const pasteHandlerPlugin = ViewPlugin.fromClass(
             });
           }
         }).catch((err) => {
-          console.error('[imagePlugin] Error handling paste:', err);
+          debugLog.error('[imagePlugin] Error handling paste:', err);
         });
 
         return true;

@@ -4,6 +4,7 @@ import { useNotesStore, useSettingsStore, useUIStore, useFolderStore } from '../
 import { FolderTree } from './FolderTree';
 import { TagCloud } from './TagCloud';
 import { hasTagFilter } from '../../utils/tagFilterParser';
+import { debugLog } from '../../utils/debugLogger';
 import './Sidebar.css';
 
 export function Sidebar() {
@@ -26,7 +27,7 @@ export function Sidebar() {
       });
       setActiveNote(note.frontmatter.id);
     } catch (error) {
-      console.error('Failed to create note:', error);
+      debugLog.error('Failed to create note:', error);
     }
   };
 
@@ -41,7 +42,7 @@ export function Sidebar() {
       setNewFolderName('');
       setIsCreatingFolder(false);
     } catch (error) {
-      console.error('Failed to create folder:', error);
+      debugLog.error('Failed to create folder:', error);
     }
   };
 

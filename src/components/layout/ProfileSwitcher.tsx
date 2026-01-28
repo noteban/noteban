@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ChevronDown, User, Plus, Check, ExternalLink } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../../stores';
+import { debugLog } from '../../utils/debugLogger';
 import './ProfileSwitcher.css';
 
 export function ProfileSwitcher() {
@@ -45,7 +46,7 @@ export function ProfileSwitcher() {
       await invoke('open_profile_in_new_window', { profileId });
       setIsOpen(false);
     } catch (error) {
-      console.error('Failed to open profile in new window:', error);
+      debugLog.error('Failed to open profile in new window:', error);
     }
   };
 

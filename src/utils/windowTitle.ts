@@ -1,4 +1,5 @@
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { debugLog } from './debugLogger';
 
 const APP_NAME = 'Noteban';
 
@@ -19,6 +20,6 @@ export async function setWindowTitle(
         : APP_NAME;
     await appWindow.setTitle(title);
   } catch (error) {
-    console.error('Failed to set window title:', error);
+    debugLog.error('Failed to set window title:', error);
   }
 }

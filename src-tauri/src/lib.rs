@@ -4,8 +4,15 @@ mod utils;
 
 use cache::CacheDb;
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard};
 use std::time::Instant;
+
+/// Acquire a mutex lock, returning an error string if the mutex is poisoned.
+pub fn lock_or_err<T>(mutex: &Mutex<T>) -> Result<MutexGuard<'_, T>, String> {
+    mutex
+        .lock()
+        .map_err(|_| "Internal state lock error".to_string())
+}
 
 pub struct AppState {
     pub cache: Mutex<Option<CacheDb>>,
@@ -24,8 +31,8 @@ fn open_profile_in_new_window(profile_id: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-fn get_initial_profile(state: tauri::State<AppState>) -> Option<String> {
-    state.initial_profile_id.lock().unwrap().clone()
+fn get_initial_profile(state: tauri::State<AppState>) -> Result<Option<String>, String> {
+    Ok(lock_or_err(&state.initial_profile_id)?.clone())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

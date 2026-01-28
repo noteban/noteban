@@ -5,6 +5,7 @@ import { format } from 'date-fns';
 import type { Note } from '../../types/note';
 import { useNotesStore, useUIStore } from '../../stores';
 import { useTags } from '../../hooks';
+import { debugLog } from '../../utils/debugLogger';
 import './KanbanCard.css';
 
 interface Task {
@@ -114,7 +115,7 @@ export function KanbanCard({ note, isDragging, onClick }: KanbanCardProps) {
         content: newContent,
       });
     } catch (error) {
-      console.error('Failed to update task:', error);
+      debugLog.error('Failed to update task:', error);
     }
   };
 

@@ -370,7 +370,9 @@ pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Not
         if let Some(cache) = cache_lock.as_ref() {
             let hash = compute_content_hash(&file_content);
             let mtime = get_file_mtime(&file_path).unwrap_or(0);
-            let _ = cache.upsert_note(&note, &hash, mtime, &inline_tags);
+            if let Err(e) = cache.upsert_note(&note, &hash, mtime, &inline_tags) {
+                log::warn!("Cache update failed for new note: {}", e);
+            }
         }
     }
 
@@ -456,7 +458,9 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
                 // Remove old path from cache
                 if let Ok(cache_lock) = state.cache.lock() {
                     if let Some(cache) = cache_lock.as_ref() {
-                        let _ = cache.remove_note(&old_file_path);
+                        if let Err(e) = cache.remove_note(&old_file_path) {
+                            log::warn!("Cache remove failed for renamed note: {}", e);
+                        }
                     }
                 }
             }
@@ -481,7 +485,9 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
         if let Some(cache) = cache_lock.as_ref() {
             let hash = compute_content_hash(&file_content);
             let mtime = get_file_mtime(&current_path).unwrap_or(0);
-            let _ = cache.upsert_note(&note, &hash, mtime, &inline_tags);
+            if let Err(e) = cache.upsert_note(&note, &hash, mtime, &inline_tags) {
+                log::warn!("Cache update failed for note: {}", e);
+            }
         }
     }
 
@@ -523,7 +529,9 @@ pub fn delete_note(file_path: String, state: State<AppState>) -> Result<(), Stri
     // Remove from cache
     if let Ok(cache_lock) = state.cache.lock() {
         if let Some(cache) = cache_lock.as_ref() {
-            let _ = cache.remove_note(&file_path);
+            if let Err(e) = cache.remove_note(&file_path) {
+                log::warn!("Cache remove failed for deleted note: {}", e);
+            }
         }
     }
 
@@ -653,7 +661,9 @@ pub fn move_note(file_path: String, target_folder: String, state: State<AppState
     // Remove old path from cache
     if let Ok(cache_lock) = state.cache.lock() {
         if let Some(cache) = cache_lock.as_ref() {
-            let _ = cache.remove_note(&file_path);
+            if let Err(e) = cache.remove_note(&file_path) {
+                log::warn!("Cache remove failed for moved note: {}", e);
+            }
         }
     }
 
@@ -666,7 +676,9 @@ pub fn move_note(file_path: String, target_folder: String, state: State<AppState
             let hash = compute_content_hash(&content);
             let mtime = get_file_mtime(&final_dest).unwrap_or(0);
             let inline_tags = extract_inline_tags(&note.content);
-            let _ = cache.upsert_note(&note, &hash, mtime, &inline_tags);
+            if let Err(e) = cache.upsert_note(&note, &hash, mtime, &inline_tags) {
+                log::warn!("Cache update failed for moved note: {}", e);
+            }
         }
     }
 
@@ -765,7 +777,9 @@ pub fn list_notes_cached(
                         let content =
                             fs::read_to_string(&path_buf).unwrap_or_else(|_| note.content.clone());
                         let hash = compute_content_hash(&content);
-                        let _ = c.upsert_note(&note, &hash, mtime, &inline_tags);
+                        if let Err(e) = c.upsert_note(&note, &hash, mtime, &inline_tags) {
+                            log::warn!("Cache update failed during list: {}", e);
+                        }
                     }
 
                     notes.push(NoteWithTags { note, inline_tags });
@@ -777,7 +791,9 @@ pub fn list_notes_cached(
 
     // Remove stale cache entries
     if let Some(c) = cache {
-        let _ = c.remove_notes_not_in(&seen_paths);
+        if let Err(e) = c.remove_notes_not_in(&seen_paths) {
+            log::warn!("Failed to remove stale cache entries: {}", e);
+        }
     }
 
     // Sort by modified date (newest first)
@@ -810,7 +826,9 @@ pub fn process_file_changes(
         match change.event_type.as_str() {
             "remove" => {
                 if let Some(c) = cache {
-                    let _ = c.remove_note(&change.file_path);
+                    if let Err(e) = c.remove_note(&change.file_path) {
+                        log::warn!("Cache remove failed for file change: {}", e);
+                    }
                 }
                 removed_paths.push(change.file_path);
             }
@@ -848,7 +866,9 @@ pub fn process_file_changes(
                             let content = fs::read_to_string(&path)
                                 .unwrap_or_else(|_| note.content.clone());
                             let hash = compute_content_hash(&content);
-                            let _ = c.upsert_note(&note, &hash, mtime, &inline_tags);
+                            if let Err(e) = c.upsert_note(&note, &hash, mtime, &inline_tags) {
+                                log::warn!("Cache update failed for file change: {}", e);
+                            }
                         }
 
                         updated_notes.push(NoteWithTags {

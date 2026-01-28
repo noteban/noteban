@@ -138,7 +138,7 @@ export function useUpdater() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [disableUpdateChecks]);
+  }, [disableUpdateChecks, checkForUpdates]);
 
   return {
     isChecking,

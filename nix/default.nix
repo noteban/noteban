@@ -1,6 +1,9 @@
 { lib
 , appimageTools
 , fetchurl
+, gtk3
+, libayatana-appindicator
+, webkitgtk_4_0
 }:
 
 let
@@ -16,6 +19,12 @@ let
 in
 appimageTools.wrapType2 {
   inherit pname version src;
+
+  extraPkgs = _: [
+    gtk3
+    libayatana-appindicator
+    webkitgtk_4_0
+  ];
 
   extraInstallCommands = ''
     # Install desktop file

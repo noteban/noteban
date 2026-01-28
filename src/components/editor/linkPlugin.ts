@@ -233,7 +233,7 @@ export const linkTheme = EditorView.baseTheme({
 
 // Separate DOM event handler for clicks - use mousedown to capture before other handlers
 export const linkClickHandler = EditorView.domEventHandlers({
-  mousedown: (e, _view) => {
+  mousedown: (e) => {
     if (!isModifierPressed(e)) return false;
 
     // Walk up the DOM tree to find .cm-link element

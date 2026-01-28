@@ -6,4 +6,5 @@ It features tags, screenshots and checkboxes in the notes, but also shows the no
 
 ![Main View](.github/assets/Main%20view.png)
 ![Kanban View](.github/assets/Kanban%20view.png)
-![Screenshot in Nods](.github/assets/Screenshot%20note.png)
+![Screenshot in Notes](.github/assets/Screenshot%20note.png)
+![Filter](.github/assets/Filter.png)

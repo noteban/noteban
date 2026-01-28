@@ -43,21 +43,30 @@ impl CacheDb {
     }
 
     fn initialize_schema(&self) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| "Cache lock error".to_string())?;
         conn.execute_batch(SCHEMA)
             .map_err(|e| format!("Failed to initialize schema: {}", e))?;
         Ok(())
     }
 
     pub fn invalidate_all(&self) -> Result<(), String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| "Cache lock error".to_string())?;
         conn.execute("DELETE FROM notes", [])
             .map_err(|e| format!("Failed to invalidate cache: {}", e))?;
         Ok(())
     }
 
     pub fn verify_integrity(&self) -> Result<bool, String> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self
+            .conn
+            .lock()
+            .map_err(|_| "Cache lock error".to_string())?;
         let result: String = conn
             .query_row("PRAGMA integrity_check", [], |row| row.get(0))
             .map_err(|e| format!("Integrity check failed: {}", e))?;

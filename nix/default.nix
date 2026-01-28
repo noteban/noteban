@@ -5,7 +5,7 @@
 
 let
   pname = "noteban";
-  version = "3.2.5";
+  version = "3.2.6";
 
   src = fetchurl {
     url = "https://github.com/noteban/noteban/releases/download/v${version}/Noteban_${version}_amd64.AppImage";

@@ -82,15 +82,46 @@ echo -e "${GREEN}done${NC}"
 echo ""
 
 # Git operations
-echo -e "${YELLOW}Creating git commit and tag...${NC}"
+BRANCH_NAME="release/v$VERSION"
 
+# Check if branch already exists locally or remotely
+if git rev-parse --verify "$BRANCH_NAME" >/dev/null 2>&1; then
+    echo -e "${RED}Error: Branch $BRANCH_NAME already exists locally${NC}"
+    exit 1
+fi
+
+if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
+    echo -e "${RED}Error: Branch $BRANCH_NAME already exists on remote${NC}"
+    exit 1
+fi
+
+echo -e "${YELLOW}Creating release branch and PR...${NC}"
+
+# Create and switch to release branch
+git checkout -b "$BRANCH_NAME"
+
+# Stage and commit changes
 git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json aur/PKGBUILD
 git commit -m "Bump version to $VERSION"
-git tag -a "v$VERSION" -m "Version $VERSION"
+
+# Push branch to remote
+git push -u origin "$BRANCH_NAME"
+
+# Create PR using gh CLI
+if command -v gh &> /dev/null; then
+    PR_URL=$(gh pr create \
+        --title "Release v$VERSION" \
+        --body "Bumps version to $VERSION" \
+        --label "release" \
+        --base main)
+    echo -e "${GREEN}Pull request created: $PR_URL${NC}"
+else
+    echo -e "${YELLOW}gh CLI not found. Create the PR manually.${NC}"
+fi
 
 echo ""
-echo -e "${GREEN}Version bumped to $VERSION successfully!${NC}"
+echo -e "${GREEN}Version bump to $VERSION prepared!${NC}"
 echo ""
 echo "Next steps:"
-echo "  1. Review the changes: git show HEAD"
-echo "  2. Push to remote: git push && git push --tags"
+echo "  1. Review and merge the PR"
+echo "  2. Tag will be created automatically after merge"

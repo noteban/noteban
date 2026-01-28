@@ -86,6 +86,11 @@ echo -n "Updating aur/PKGBUILD... "
 sed_inplace "s/^pkgver=.*/pkgver=$VERSION/" "$PROJECT_ROOT/aur/PKGBUILD"
 echo -e "${GREEN}done${NC}"
 
+# Update nix/default.nix
+echo -n "Updating nix/default.nix... "
+sed_inplace "s/version = \"$CURRENT_VERSION\"/version = \"$VERSION\"/" "$PROJECT_ROOT/nix/default.nix"
+echo -e "${GREEN}done${NC}"
+
 echo ""
 
 # Git operations
@@ -108,7 +113,7 @@ echo -e "${YELLOW}Creating release branch and PR...${NC}"
 git checkout -b "$BRANCH_NAME"
 
 # Stage and commit changes
-git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json aur/PKGBUILD
+git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json aur/PKGBUILD nix/default.nix
 git commit -m "Bump version to $VERSION"
 
 # Push branch to remote

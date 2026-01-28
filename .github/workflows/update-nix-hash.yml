@@ -39,15 +39,15 @@ jobs:
           echo "SRI Hash: $SRI_HASH"
           echo "SRI_HASH=$SRI_HASH" >> $GITHUB_OUTPUT
 
-      - name: Update nix/default.nix
+      - name: Update nix/package.nix
         run: |
           SRI_HASH="${{ steps.hash.outputs.SRI_HASH }}"
 
           # Update the hash in default.nix
-          sed -i "s|hash = \"sha256-[^\"]*\"|hash = \"$SRI_HASH\"|" nix/default.nix
+          sed -i "s|hash = \"sha256-[^\"]*\"|hash = \"$SRI_HASH\"|" nix/package.nix
 
-          echo "Updated nix/default.nix:"
-          grep -A1 "fetchurl" nix/default.nix
+          echo "Updated nix/package.nix:"
+          grep -A1 "fetchurl" nix/package.nix
 
       - name: Commit and push
         run: |
@@ -56,6 +56,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git add nix/default.nix
+          git add nix/package.nix
           git diff --staged --quiet || git commit -m "Update Nix package hash for v${VERSION}"
           git push origin main

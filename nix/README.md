@@ -61,20 +61,10 @@ in
 }
 ```
 
-## Updating the hash
+## Hash updates
 
-When a new version is released, the hash in `default.nix` needs to be updated.
-You can get the correct hash by running:
-
-```bash
-nix-prefetch-url https://github.com/noteban/noteban/releases/download/vX.Y.Z/Noteban_X.Y.Z_amd64.AppImage
-```
-
-Then convert to SRI format:
-
-```bash
-nix hash to-sri --type sha256 <hash>
-```
+The hash in `default.nix` is automatically updated by a GitHub Action when a
+new release is published. No manual intervention is required.
 
 ## Note
 

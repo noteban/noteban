@@ -1,6 +1,6 @@
 # Maintainer: Your Name <your.email@example.com>
 pkgname=noteban-bin
-pkgver=3.2.4
+pkgver=3.2.5
 pkgrel=1
 pkgdesc="A notes-first app with kanban organization"
 arch=('x86_64')

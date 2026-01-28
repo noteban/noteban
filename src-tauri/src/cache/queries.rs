@@ -301,7 +301,7 @@ impl CacheDb {
         let mut result = Vec::new();
         for mut note in notes {
             // Get frontmatter tags
-            let mut stmt = conn
+            let mut frontmatter_stmt = conn
                 .prepare(
                     "SELECT t.name FROM tags t
                      JOIN note_tags nt ON t.id = nt.tag_id
@@ -309,7 +309,7 @@ impl CacheDb {
                 )
                 .map_err(|e| format!("Failed to prepare tags query: {}", e))?;
 
-            let frontmatter_tags: Vec<String> = stmt
+            let frontmatter_tags: Vec<String> = frontmatter_stmt
                 .query_map([&note.frontmatter.id], |row| row.get(0))
                 .map_err(|e| format!("Failed to query frontmatter tags: {}", e))?
                 .filter_map(|r| r.ok())
@@ -318,7 +318,7 @@ impl CacheDb {
             note.frontmatter.tags = frontmatter_tags;
 
             // Get inline tags
-            let mut stmt = conn
+            let mut inline_stmt = conn
                 .prepare(
                     "SELECT t.name FROM tags t
                      JOIN note_tags nt ON t.id = nt.tag_id
@@ -326,7 +326,7 @@ impl CacheDb {
                 )
                 .map_err(|e| format!("Failed to prepare inline tags query: {}", e))?;
 
-            let inline_tags: Vec<String> = stmt
+            let inline_tags: Vec<String> = inline_stmt
                 .query_map([&note.frontmatter.id], |row| row.get(0))
                 .map_err(|e| format!("Failed to query inline tags: {}", e))?
                 .filter_map(|r| r.ok())

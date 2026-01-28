@@ -40,6 +40,13 @@ if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     exit 1
 fi
 
+# Ensure we're on main and up-to-date before making any changes
+echo -e "${YELLOW}Switching to main branch...${NC}"
+git fetch origin
+git checkout main
+git pull origin main
+echo ""
+
 # Get current version from package.json
 CURRENT_VERSION=$(grep -o '"version": "[^"]*"' "$PROJECT_ROOT/package.json" | head -1 | cut -d'"' -f4)
 
@@ -96,11 +103,6 @@ if git ls-remote --heads origin "$BRANCH_NAME" | grep -q "$BRANCH_NAME"; then
 fi
 
 echo -e "${YELLOW}Creating release branch and PR...${NC}"
-
-# Ensure we're on main and up-to-date before branching
-git fetch origin
-git checkout main
-git pull origin main
 
 # Create and switch to release branch
 git checkout -b "$BRANCH_NAME"

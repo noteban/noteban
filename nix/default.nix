@@ -17,6 +17,24 @@ in
 appimageTools.wrapType2 {
   inherit pname version src;
 
+  # <ID> Graphics/EGL libraries required for WebKit/GTK rendering on NixOS
+  extraPkgs = pkgs: with pkgs; [
+    # Graphics/EGL requirements
+    libGL
+    libdrm
+    mesa
+    vulkan-loader
+    # GTK/WebKit requirements
+    gtk3
+    glib
+    gdk-pixbuf
+    pango
+    cairo
+    atk
+    webkitgtk_4_1
+    libsoup_3
+  ];
+
   extraInstallCommands = ''
     # Install desktop file
     install -Dm644 ${appimageContents}/usr/share/applications/Noteban.desktop \

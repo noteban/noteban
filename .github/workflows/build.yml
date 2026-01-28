@@ -16,14 +16,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - platform: ubuntu-22.04
-            target: blacksmith-4vcpu-ubuntu-2404
+          - platform: blacksmith-4vcpu-ubuntu-2404
+            target: x86_64-unknown-linux-gnu
           - platform: macos-latest
             target: x86_64-apple-darwin
           - platform: macos-latest
             target: aarch64-apple-darwin
-          - platform: windows-latest
-            target: blacksmith-4vcpu-windows-2025
+          - platform: blacksmith-4vcpu-windows-2025
+            target: x86_64-pc-windows-msvc
 
     runs-on: ${{ matrix.platform }}
 
@@ -49,7 +49,7 @@ jobs:
           shared-key: ${{ matrix.target }}
 
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: contains(matrix.platform, 'ubuntu')
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -72,7 +72,7 @@ jobs:
           args: --target ${{ matrix.target }}
 
       - name: Upload artifacts (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: contains(matrix.platform, 'ubuntu')
         uses: actions/upload-artifact@v4
         with:
           name: linux-x64
@@ -137,7 +137,7 @@ jobs:
             src-tauri/target/${{ matrix.target }}/release/bundle/macos/*.app.tar.gz.sig
 
       - name: Upload artifacts (Windows)
-        if: matrix.platform == 'windows-latest'
+        if: contains(matrix.platform, 'windows')
         uses: actions/upload-artifact@v4
         with:
           name: windows-x64

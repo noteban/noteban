@@ -97,6 +97,11 @@ fi
 
 echo -e "${YELLOW}Creating release branch and PR...${NC}"
 
+# Ensure we're on main and up-to-date before branching
+git fetch origin
+git checkout main
+git pull origin main
+
 # Create and switch to release branch
 git checkout -b "$BRANCH_NAME"
 

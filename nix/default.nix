@@ -9,8 +9,8 @@ let
   pname = "noteban";
   version = "3.2.6";
   pinnedPkgs = import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/nixos-23.11.tar.gz") { };
-  # Pinned to WebKitGTK 4.0 to avoid EGL_BAD_PARAMETER regression (see gitbutler#5282).
-  webkitgtk = pinnedPkgs.webkitgtk_4_0;
+  # Pinned to WebKitGTK 2.44.x to avoid EGL_BAD_PARAMETER regression (see gitbutler#5282).
+  webkitgtk = pinnedPkgs.webkitgtk;
 
   src = fetchurl {
     url = "https://github.com/noteban/noteban/releases/download/v${version}/Noteban_${version}_amd64.AppImage";

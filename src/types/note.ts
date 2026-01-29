@@ -26,6 +26,7 @@ export type CreateNoteInput = {
 };
 
 export type UpdateNoteInput = {
+  notes_dir: string;
   file_path: string;
   title?: string;
   content?: string;

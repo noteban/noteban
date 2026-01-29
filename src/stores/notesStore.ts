@@ -8,6 +8,7 @@ import type {
   NoteWithTags,
 } from '../types/folder';
 import { useFolderStore } from './folderStore';
+import { useSettingsStore } from './settingsStore';
 import { debugLog } from '../utils/debugLogger';
 
 interface NotesState {
@@ -22,7 +23,7 @@ interface NotesState {
   loadNotes: (notesDir: string) => Promise<void>;
   processFileChanges: (notesDir: string, changes: FileChangeEvent[]) => Promise<void>;
   createNote: (input: CreateNoteInput) => Promise<Note>;
-  updateNote: (input: UpdateNoteInput) => Promise<void>;
+  updateNote: (input: Omit<UpdateNoteInput, 'notes_dir'>) => Promise<void>;
   deleteNote: (filePath: string) => Promise<void>;
   moveNote: (filePath: string, targetFolder: string) => Promise<void>;
   setActiveNote: (id: string | null) => void;
@@ -148,8 +149,14 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     return result.note;
   },
 
-  updateNote: async (input: UpdateNoteInput) => {
-    const result = await invoke<NoteWithTags>('update_note', { input });
+  updateNote: async (input: Omit<UpdateNoteInput, 'notes_dir'>) => {
+    const notesDir = useSettingsStore.getState().settings.notesDirectory;
+    if (!notesDir) {
+      throw new Error('Notes directory not set');
+    }
+    const result = await invoke<NoteWithTags>('update_note', {
+      input: { ...input, notes_dir: notesDir },
+    });
     set(state => {
       const newInlineTags = new Map(state.inlineTags);
       newInlineTags.set(result.note.frontmatter.id, result.inline_tags);
@@ -163,7 +170,11 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   deleteNote: async (filePath: string) => {
-    await invoke('delete_note', { filePath });
+    const notesDir = useSettingsStore.getState().settings.notesDirectory;
+    if (!notesDir) {
+      throw new Error('Notes directory not set');
+    }
+    await invoke('delete_note', { notesDir, filePath });
     set(state => {
       const noteToDelete = state.notes.find(n => n.file_path === filePath);
       const newInlineTags = new Map(state.inlineTags);
@@ -179,7 +190,11 @@ export const useNotesStore = create<NotesState>((set, get) => ({
   },
 
   moveNote: async (filePath: string, targetFolder: string) => {
-    const movedNote = await invoke<Note>('move_note', { filePath, targetFolder });
+    const notesDir = useSettingsStore.getState().settings.notesDirectory;
+    if (!notesDir) {
+      throw new Error('Notes directory not set');
+    }
+    const movedNote = await invoke<Note>('move_note', { notesDir, filePath, targetFolder });
     set(state => ({
       notes: state.notes.map(n =>
         n.file_path === filePath ? movedNote : n

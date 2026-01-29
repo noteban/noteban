@@ -485,20 +485,35 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
 
             // Only rename if the new path is different
             if new_path != path {
+                let new_attachments = parent.join(format!("{}.attachments", new_stem));
+                let mut attachments_renamed = false;
+
                 // Record both old and new paths
                 record_write(&path.to_string_lossy(), &state);
                 record_write(&new_path.to_string_lossy(), &state);
 
-                fs::rename(&path, &new_path)
-                    .map_err(|e| format!("Failed to rename note: {}", e))?;
-                current_path = new_path;
-
-                // Rename attachments folder if it exists
+                // Rename attachments first (if any) to avoid partial state
                 if old_attachments.exists() && old_attachments.is_dir() {
-                    let new_attachments = parent.join(format!("{}.attachments", new_stem));
+                    if new_attachments.exists() {
+                        return Err("Attachments folder already exists".to_string());
+                    }
                     fs::rename(&old_attachments, &new_attachments)
                         .map_err(|e| format!("Failed to rename attachments folder: {}", e))?;
+                    attachments_renamed = true;
                 }
+
+                if let Err(e) = fs::rename(&path, &new_path) {
+                    if attachments_renamed {
+                        if let Err(rollback_err) = fs::rename(&new_attachments, &old_attachments) {
+                            log::error!(
+                                "Failed to rollback attachments rename from {:?} to {:?}: {}. Manual cleanup may be required.",
+                                new_attachments, old_attachments, rollback_err
+                            );
+                        }
+                    }
+                    return Err(format!("Failed to rename note: {}", e));
+                }
+                current_path = new_path;
 
                 // Remove old path from cache
                 if let Ok(cache_lock) = state.cache.lock() {
@@ -730,16 +745,33 @@ pub fn move_note(notes_dir: String, file_path: String, target_folder: String, st
     record_write(&file_path, &state);
     record_write(&final_dest.to_string_lossy(), &state);
 
-    // Move the note file
-    fs::rename(&source, &final_dest).map_err(|e| format!("Failed to move note: {}", e))?;
-
     // Move the attachments folder if it exists
-    if let Some(src_attach) = source_attachments {
+    let mut attachments_moved = false;
+    let dest_attachments = target_dir.join(format!("{}.attachments", final_stem));
+    if let Some(src_attach) = source_attachments.as_ref() {
         if src_attach.exists() && src_attach.is_dir() {
-            let dest_attachments = target_dir.join(format!("{}.attachments", final_stem));
-            fs::rename(&src_attach, &dest_attachments)
+            if dest_attachments.exists() {
+                return Err("Attachments folder already exists".to_string());
+            }
+            fs::rename(src_attach, &dest_attachments)
                 .map_err(|e| format!("Failed to move attachments folder: {}", e))?;
+            attachments_moved = true;
         }
+    }
+
+    // Move the note file
+    if let Err(e) = fs::rename(&source, &final_dest) {
+        if attachments_moved {
+            if let Some(src_attach) = source_attachments.as_ref() {
+                if let Err(rollback_err) = fs::rename(&dest_attachments, src_attach) {
+                    log::error!(
+                        "Failed to rollback attachments move from {:?} to {:?}: {}. Manual cleanup may be required.",
+                        dest_attachments, src_attach, rollback_err
+                    );
+                }
+            }
+        }
+        return Err(format!("Failed to move note: {}", e));
     }
 
     // Remove old path from cache

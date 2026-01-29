@@ -251,6 +251,35 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'noteban-settings',
       version: SETTINGS_SCHEMA_VERSION,
       migrate: migrateSettings,
+      // Prevent cross-window sync from changing this window's activeProfileId
+      // Each window maintains its own active profile after initial load
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<SettingsState>;
+        // On initial load, currentState has default activeProfileId
+        // On cross-window sync, currentState has this window's activeProfileId
+        const isInitialLoad = currentState.root.activeProfileId === persisted.root?.activeProfileId;
+
+        if (isInitialLoad || !persisted.root) {
+          // Initial load: use persisted state normally
+          return { ...currentState, ...persisted } as SettingsState;
+        }
+
+        // Cross-window sync: preserve this window's activeProfileId and settings
+        const activeProfile = currentState.root.profiles.find(
+          p => p.id === currentState.root.activeProfileId
+        ) || persisted.root.profiles.find(
+          p => p.id === currentState.root.activeProfileId
+        );
+
+        return {
+          ...currentState,
+          root: {
+            ...persisted.root,
+            activeProfileId: currentState.root.activeProfileId,
+          },
+          settings: activeProfile?.settings || currentState.settings,
+        } as SettingsState;
+      },
     }
   )
 );

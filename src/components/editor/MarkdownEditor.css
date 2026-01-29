@@ -5,6 +5,7 @@
   display: flex;
   flex-direction: column;
   background-color: #1e1e2e;
+  overflow: hidden;
 }
 
 .markdown-editor-toolbar {
@@ -15,15 +16,22 @@
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   min-height: 32px;
+  flex-shrink: 0;
 }
 
 .markdown-editor-toolbar:empty {
   display: none;
 }
 
-.markdown-editor .cm-editor {
+/* Target the react-codemirror wrapper div */
+.markdown-editor > div:last-child {
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+}
+
+.markdown-editor .cm-editor {
+  height: 100% !important;
   background-color: #1e1e2e;
   border: none !important;
   outline: none !important;

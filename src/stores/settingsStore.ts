@@ -275,13 +275,23 @@ export const useSettingsStore = create<SettingsState>()(
           p => p.id === currentState.root.activeProfileId
         );
 
+        // If this window's profile was deleted in another window, switch to first available
+        if (!activeProfile) {
+          const fallbackProfile = persisted.root.profiles[0];
+          return {
+            ...currentState,
+            root: persisted.root,
+            settings: fallbackProfile?.settings || currentState.settings,
+          } as SettingsState;
+        }
+
         return {
           ...currentState,
           root: {
             ...persisted.root,
             activeProfileId: currentState.root.activeProfileId,
           },
-          settings: activeProfile?.settings || currentState.settings,
+          settings: activeProfile.settings,
         } as SettingsState;
       },
     }

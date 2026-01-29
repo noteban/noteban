@@ -6,6 +6,10 @@ import { DEFAULT_COLUMNS } from '../types/kanban';
 import { migrateSettings, createInitialRoot, generateProfileId } from '../utils/settingsMigration';
 import { debugLog } from '../utils/debugLogger';
 
+// Track if this window has already hydrated from localStorage
+// Used to distinguish initial load from cross-window sync events
+let hasHydrated = false;
+
 interface SettingsState {
   // Root state
   root: AppSettingsRoot;
@@ -255,19 +259,19 @@ export const useSettingsStore = create<SettingsState>()(
       // Each window maintains its own active profile after initial load
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<SettingsState>;
-        // On initial load, currentState has default activeProfileId
-        // On cross-window sync, currentState has this window's activeProfileId
-        const isInitialLoad = currentState.root.activeProfileId === persisted.root?.activeProfileId;
 
-        if (isInitialLoad || !persisted.root) {
+        if (!hasHydrated) {
           // Initial load: use persisted state normally
+          hasHydrated = true;
           return { ...currentState, ...persisted } as SettingsState;
         }
 
         // Cross-window sync: preserve this window's activeProfileId and settings
-        const activeProfile = currentState.root.profiles.find(
-          p => p.id === currentState.root.activeProfileId
-        ) || persisted.root.profiles.find(
+        if (!persisted.root) {
+          return currentState;
+        }
+
+        const activeProfile = persisted.root.profiles.find(
           p => p.id === currentState.root.activeProfileId
         );
 

@@ -459,7 +459,12 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
 
                 if let Err(e) = fs::rename(&path, &new_path) {
                     if attachments_renamed {
-                        let _ = fs::rename(&new_attachments, &old_attachments);
+                        if let Err(rollback_err) = fs::rename(&new_attachments, &old_attachments) {
+                            log::error!(
+                                "Failed to rollback attachments rename from {:?} to {:?}: {}. Manual cleanup may be required.",
+                                new_attachments, old_attachments, rollback_err
+                            );
+                        }
                     }
                     return Err(format!("Failed to rename note: {}", e));
                 }
@@ -674,7 +679,12 @@ pub fn move_note(file_path: String, target_folder: String, state: State<AppState
     if let Err(e) = fs::rename(&source, &final_dest) {
         if attachments_moved {
             if let Some(src_attach) = source_attachments.as_ref() {
-                let _ = fs::rename(&dest_attachments, src_attach);
+                if let Err(rollback_err) = fs::rename(&dest_attachments, src_attach) {
+                    log::error!(
+                        "Failed to rollback attachments move from {:?} to {:?}: {}. Manual cleanup may be required.",
+                        dest_attachments, src_attach, rollback_err
+                    );
+                }
             }
         }
         return Err(format!("Failed to move note: {}", e));

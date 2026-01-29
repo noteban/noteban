@@ -7,14 +7,14 @@ export function UpdateNotification() {
     updateAvailable,
     isDownloading,
     downloadProgress,
-    isDismissed,
+    dismissedVersion,
     isLinux,
     downloadAndInstall,
     openReleasesPage,
     dismissUpdate,
   } = useUpdater();
 
-  if (!updateAvailable || isDismissed) {
+  if (!updateAvailable || updateAvailable.version === dismissedVersion) {
     return null;
   }
 
@@ -63,7 +63,7 @@ export function UpdateNotification() {
             )}
             <button
               className="update-notification-btn dismiss"
-              onClick={dismissUpdate}
+              onClick={() => dismissUpdate(updateAvailable.version)}
               title="Dismiss"
             >
               <X size={16} />

@@ -1,7 +1,7 @@
 use super::db::CacheDb;
 use crate::commands::notes::{Note, NoteFrontmatter};
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection, Transaction};
+use rusqlite::{params, Transaction};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
@@ -121,7 +121,7 @@ impl CacheDb {
         file_mtime: i64,
         inline_tags: &[String],
     ) -> Result<(), String> {
-        let conn = self
+        let mut conn = self
             .conn
             .lock()
             .map_err(|_| "Cache lock error".to_string())?;

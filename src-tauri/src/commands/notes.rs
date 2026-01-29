@@ -244,7 +244,10 @@ fn slugify(title: &str) -> String {
 fn slugify_or_fallback(title: &str, fallback_id: &str) -> String {
     let slug = slugify(title);
     if slug.is_empty() {
-        format!("untitled-{}", &fallback_id[..fallback_id.len().min(8)])
+        format!(
+            "untitled-{}",
+            fallback_id.chars().take(8).collect::<String>()
+        )
     } else {
         slug
     }

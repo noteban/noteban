@@ -23,7 +23,7 @@ interface NotesState {
   loadNotes: (notesDir: string) => Promise<void>;
   processFileChanges: (notesDir: string, changes: FileChangeEvent[]) => Promise<void>;
   createNote: (input: CreateNoteInput) => Promise<Note>;
-  updateNote: (input: UpdateNoteInput) => Promise<void>;
+  updateNote: (input: Omit<UpdateNoteInput, 'notes_dir'>) => Promise<void>;
   deleteNote: (filePath: string) => Promise<void>;
   moveNote: (filePath: string, targetFolder: string) => Promise<void>;
   setActiveNote: (id: string | null) => void;
@@ -149,7 +149,7 @@ export const useNotesStore = create<NotesState>((set, get) => ({
     return result.note;
   },
 
-  updateNote: async (input: UpdateNoteInput) => {
+  updateNote: async (input: Omit<UpdateNoteInput, 'notes_dir'>) => {
     const notesDir = useSettingsStore.getState().settings.notesDirectory;
     if (!notesDir) {
       throw new Error('Notes directory not set');

@@ -518,6 +518,12 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
                     }
                     return Err(format!("Failed to rename note: {}", e));
                 }
+
+                // Update attachment references in content to reflect new folder name
+                let old_pattern = format!("{}.attachments/", old_stem);
+                let new_pattern = format!("{}.attachments/", new_stem);
+                note.content = note.content.replace(&old_pattern, &new_pattern);
+
                 current_path = new_path;
 
                 // Remove old path from cache

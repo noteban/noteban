@@ -4,6 +4,16 @@
 // - Not preceded by alphanumeric (to avoid matching mid-word)
 const HASHTAG_REGEX = /(?:^|[^a-zA-Z0-9])#([a-zA-Z][a-zA-Z0-9_-]*)/g;
 
+// Pattern for validating a tag string (without the # prefix)
+const TAG_VALIDATION_REGEX = /^[a-zA-Z][a-zA-Z0-9_-]*$/;
+
+/**
+ * Validates if a string is a valid tag (without # prefix)
+ */
+export function isValidTag(tag: string): boolean {
+  return TAG_VALIDATION_REGEX.test(tag);
+}
+
 /**
  * Extracts all unique hashtags from markdown content.
  * Skips frontmatter and code blocks.

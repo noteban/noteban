@@ -15,6 +15,7 @@ import { tagAutocomplete } from './tagAutocompletePlugin';
 import { linkPlugin, linkTheme, modifierClassPlugin, linkClickHandler } from './linkPlugin';
 import { imagePlugin } from './imagePlugin';
 import { listContinuationKeymap } from './listContinuationPlugin';
+import { TagSuggestionButton } from './TagSuggestionButton';
 import { useTags } from '../../hooks/useTags';
 import { debugLog } from '../../utils/debugLogger';
 import './MarkdownEditor.css';
@@ -175,6 +176,25 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
     debouncedSave(value);
   }, [debouncedSave]);
 
+  const handleInsertTag = useCallback((tag: string) => {
+    const view = editorRef.current?.view;
+    if (!view) return;
+
+    const pos = view.state.selection.main.head;
+    const doc = view.state.doc;
+
+    // Check if there's a space or newline before cursor, or if we're at the start
+    const charBefore = pos > 0 ? doc.sliceString(pos - 1, pos) : '';
+    const needsSpaceBefore = pos > 0 && charBefore !== ' ' && charBefore !== '\n' && charBefore !== '\t';
+
+    const insertText = (needsSpaceBefore ? ' ' : '') + `#${tag} `;
+    view.dispatch({
+      changes: { from: pos, insert: insertText },
+      selection: { anchor: pos + insertText.length },
+    });
+    view.focus();
+  }, []);
+
   const extensions: Extension[] = useMemo(() => {
     const exts: Extension[] = [
       listContinuationKeymap,
@@ -231,6 +251,9 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
 
   return (
     <div className={`markdown-editor ${className || ''}`}>
+      <div className="markdown-editor-toolbar">
+        <TagSuggestionButton onInsertTag={handleInsertTag} />
+      </div>
       <CodeMirror
         ref={editorRef}
         value={activeNote.content}

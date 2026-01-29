@@ -4,8 +4,10 @@ use crate::utils::{compute_content_hash, extract_inline_tags};
 use crate::AppState;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use atomicwrites::{AtomicFile, OverwriteBehavior};
 use std::collections::HashSet;
 use std::fs;
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tauri::State;
@@ -152,18 +154,9 @@ fn get_file_mtime(path: &PathBuf) -> Result<i64, String> {
 
 /// Atomically write content to a file using a temp file and rename
 fn atomic_write(path: &PathBuf, content: &str) -> Result<(), String> {
-    let temp_path = path.with_extension(format!("md.tmp.{}", Uuid::new_v4()));
-
-    // Write to temporary file
-    fs::write(&temp_path, content)
-        .map_err(|e| format!("Failed to write temp file: {}", e))?;
-
-    // Atomically rename temp to target
-    fs::rename(&temp_path, path).map_err(|e| {
-        // Clean up temp file on failure
-        let _ = fs::remove_file(&temp_path);
-        format!("Failed to rename temp file: {}", e)
-    })
+    let file = AtomicFile::new(path, OverwriteBehavior::AllowOverwrite);
+    file.write(|f| f.write_all(content.as_bytes()))
+        .map_err(|e| format!("Failed to write file atomically: {}", e))
 }
 
 fn ensure_safe_relative_path(path: &Path) -> Result<(), String> {

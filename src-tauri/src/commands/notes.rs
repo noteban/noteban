@@ -691,6 +691,7 @@ pub fn move_note(notes_dir: String, file_path: String, target_folder: String, st
     let target_dir = {
         let raw_target = PathBuf::from(&target_folder);
         if raw_target.is_absolute() {
+            validate_existing_path_within_base(&raw_target, &base)?;
             raw_target
         } else {
             ensure_safe_relative_path(&raw_target)?;

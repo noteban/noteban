@@ -272,6 +272,18 @@ fn slugify(title: &str) -> String {
         .join("-")
 }
 
+fn slugify_or_fallback(title: &str, fallback_id: &str) -> String {
+    let slug = slugify(title);
+    if slug.is_empty() {
+        format!(
+            "untitled-{}",
+            fallback_id.chars().take(8).collect::<String>()
+        )
+    } else {
+        slug
+    }
+}
+
 #[tauri::command]
 pub fn list_notes(notes_dir: String) -> Result<NotesWithFolders, String> {
     let base_path = PathBuf::from(&notes_dir);
@@ -379,7 +391,7 @@ pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Not
     validate_path_within_base(&target_dir, &base_path)?;
 
     // Generate filename from title, handling duplicates
-    let base_slug = slugify(&input.title);
+    let base_slug = slugify_or_fallback(&input.title, &id);
     let mut filename = format!("{}.md", base_slug);
     let mut file_path = target_dir.join(&filename);
 
@@ -469,7 +481,7 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
                 .unwrap_or_default();
             let old_attachments = parent.join(format!("{}.attachments", old_stem));
 
-            let base_slug = slugify(&note.frontmatter.title);
+            let base_slug = slugify_or_fallback(&note.frontmatter.title, &note.frontmatter.id);
             let mut new_filename = format!("{}.md", base_slug);
             let mut new_path = parent.join(&new_filename);
             let mut new_stem = base_slug.clone();

@@ -15,6 +15,7 @@ import { tagAutocomplete } from './tagAutocompletePlugin';
 import { linkPlugin, linkTheme, modifierClassPlugin, linkClickHandler } from './linkPlugin';
 import { imagePlugin } from './imagePlugin';
 import { listContinuationKeymap } from './listContinuationPlugin';
+import { TagSuggestionButton } from './TagSuggestionButton';
 import { useTags } from '../../hooks/useTags';
 import { debugLog } from '../../utils/debugLogger';
 import './MarkdownEditor.css';
@@ -175,6 +176,20 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
     debouncedSave(value);
   }, [debouncedSave]);
 
+  const handleInsertTag = useCallback((tag: string) => {
+    const view = editorRef.current?.view;
+    if (!view) return;
+
+    // Insert at cursor position as inline tag
+    const pos = view.state.selection.main.head;
+    const insertText = `#${tag} `;
+    view.dispatch({
+      changes: { from: pos, insert: insertText },
+      selection: { anchor: pos + insertText.length },
+    });
+    view.focus();
+  }, []);
+
   const extensions: Extension[] = useMemo(() => {
     const exts: Extension[] = [
       listContinuationKeymap,
@@ -231,6 +246,9 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
 
   return (
     <div className={`markdown-editor ${className || ''}`}>
+      <div className="markdown-editor-toolbar">
+        <TagSuggestionButton onInsertTag={handleInsertTag} />
+      </div>
       <CodeMirror
         ref={editorRef}
         value={activeNote.content}

@@ -1,5 +1,5 @@
 import type { AppSettingsRoot, Profile, ProfileSettings, KanbanColumnSettings } from '../types/settings';
-import { DEFAULT_PROFILE_SETTINGS, DEFAULT_APP_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
+import { DEFAULT_PROFILE_SETTINGS, DEFAULT_APP_SETTINGS, DEFAULT_AI_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
 import { DEFAULT_COLUMNS } from '../types/kanban';
 
 // Old format (version 1 or unversioned)
@@ -87,17 +87,43 @@ export function migrateSettings(
   // Handle version 3 -> 4 migration (add useNativeDecorations)
   if (version === 3) {
     const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
+    return migrateSettings({
+      root: {
+        ...state.root,
+        version: 4,
+        useNativeDecorations: DEFAULT_APP_SETTINGS.useNativeDecorations,
+      },
+      settings: state.settings,
+    }, 4);
+  }
+
+  // Handle version 4 -> 5 migration (add AI settings)
+  if (version === 4) {
+    const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
+
+    // Add AI settings to all profiles
+    const updatedProfiles = state.root.profiles.map(profile => ({
+      ...profile,
+      settings: {
+        ...profile.settings,
+        ai: DEFAULT_AI_SETTINGS,
+      },
+    }));
+
     return {
       root: {
         ...state.root,
         version: SETTINGS_SCHEMA_VERSION,
-        useNativeDecorations: DEFAULT_APP_SETTINGS.useNativeDecorations,
+        profiles: updatedProfiles,
       },
-      settings: state.settings,
+      settings: {
+        ...state.settings,
+        ai: DEFAULT_AI_SETTINGS,
+      },
     };
   }
 
-  // Handle version 4+ (current format) - no migration needed
+  // Handle version 5+ (current format) - no migration needed
   const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
   return state;
 }

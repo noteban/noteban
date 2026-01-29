@@ -32,6 +32,11 @@ interface SettingsState {
   setEnableDebugLogging: (enable: boolean) => void;
   setUseNativeDecorations: (use: boolean) => void;
 
+  // AI settings (profile-specific)
+  setAIEnabled: (enabled: boolean) => void;
+  setAIServerUrl: (url: string) => void;
+  setAISelectedModel: (model: string) => void;
+
   // Getters
   getActiveProfile: () => Profile | undefined;
   getAllProfiles: () => Profile[];
@@ -205,6 +210,30 @@ export const useSettingsStore = create<SettingsState>()(
               ...state.root,
               useNativeDecorations: use,
             },
+          }));
+        },
+
+        setAIEnabled: (enabled: boolean) => {
+          debugLog.log('Setting AI enabled:', enabled);
+          updateActiveProfileSettings((s) => ({
+            ...s,
+            ai: { ...s.ai, enabled },
+          }));
+        },
+
+        setAIServerUrl: (url: string) => {
+          debugLog.log('Setting AI server URL:', url);
+          updateActiveProfileSettings((s) => ({
+            ...s,
+            ai: { ...s.ai, serverUrl: url },
+          }));
+        },
+
+        setAISelectedModel: (model: string) => {
+          debugLog.log('Setting AI selected model:', model);
+          updateActiveProfileSettings((s) => ({
+            ...s,
+            ai: { ...s.ai, selectedModel: model },
           }));
         },
 

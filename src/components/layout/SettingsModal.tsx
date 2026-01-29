@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, FolderOpen, Trash2, Edit2, Copy, Plus, ExternalLink } from 'lucide-react';
+import { X, FolderOpen, Trash2, Edit2, Copy, Plus, ExternalLink, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore, useUIStore } from '../../stores';
 import { setWindowTitle } from '../../utils/windowTitle';
 import { debugLog } from '../../utils/debugLogger';
 import { isLinux } from '../../utils/platform';
+import { OllamaService } from '../../services/ollamaService';
 import './SettingsModal.css';
 
 export function SettingsModal() {
@@ -22,6 +23,9 @@ export function SettingsModal() {
     setDisableUpdateChecks,
     setEnableDebugLogging,
     setUseNativeDecorations,
+    setAIEnabled,
+    setAIServerUrl,
+    setAISelectedModel,
   } = useSettingsStore();
   const { showSettings, setShowSettings } = useUIStore();
   const modalRef = useRef<HTMLDivElement>(null);
@@ -29,6 +33,11 @@ export function SettingsModal() {
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+
+  // AI settings state
+  const [models, setModels] = useState<string[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'unknown' | 'connected' | 'error'>('unknown');
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -53,6 +62,34 @@ export function SettingsModal() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [showSettings, setShowSettings]);
+
+  // Load AI models when enabled or URL changes
+  useEffect(() => {
+    if (settings.ai.enabled && showSettings) {
+      loadModels();
+    }
+  }, [settings.ai.enabled, settings.ai.serverUrl, showSettings]);
+
+  const loadModels = async () => {
+    setIsLoadingModels(true);
+    try {
+      const modelList = await OllamaService.listModels(settings.ai.serverUrl);
+      const modelNames = modelList.map((m) => m.name);
+      setModels(modelNames);
+      setConnectionStatus('connected');
+
+      // Auto-select first model if none selected
+      if (!settings.ai.selectedModel && modelNames.length > 0) {
+        setAISelectedModel(modelNames[0]);
+      }
+    } catch (error) {
+      debugLog.error('Failed to load Ollama models:', error);
+      setModels([]);
+      setConnectionStatus('error');
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
 
   const handleSelectFolder = async () => {
     try {
@@ -323,6 +360,82 @@ export function SettingsModal() {
                   Hide the drag bar and window controls when using a tiling window manager
                 </p>
               </div>
+            )}
+          </div>
+
+          <div className="settings-section">
+            <h3>AI Tag Suggestions</h3>
+
+            <div className="settings-field">
+              <div className="settings-toggle-row">
+                <span>Enable AI Tag Suggestions</span>
+                <label className="settings-toggle">
+                  <input
+                    type="checkbox"
+                    checked={settings.ai.enabled}
+                    onChange={(e) => setAIEnabled(e.target.checked)}
+                  />
+                  <span className="settings-toggle-track"></span>
+                </label>
+              </div>
+              <p className="settings-field-hint">
+                Use a local Ollama server to suggest tags for your notes
+              </p>
+            </div>
+
+            {settings.ai.enabled && (
+              <>
+                <div className="settings-field">
+                  <label>Ollama Server URL</label>
+                  <div className="settings-ollama-url">
+                    <input
+                      type="text"
+                      value={settings.ai.serverUrl}
+                      onChange={(e) => setAIServerUrl(e.target.value)}
+                      placeholder="http://localhost:11434"
+                    />
+                    <button
+                      onClick={loadModels}
+                      disabled={isLoadingModels}
+                      className="settings-refresh-btn"
+                      title="Refresh models"
+                    >
+                      <RefreshCw size={16} className={isLoadingModels ? 'spinning' : ''} />
+                    </button>
+                    {connectionStatus === 'connected' && (
+                      <CheckCircle2 size={16} className="settings-status-ok" />
+                    )}
+                    {connectionStatus === 'error' && (
+                      <XCircle size={16} className="settings-status-error" />
+                    )}
+                  </div>
+                </div>
+
+                <div className="settings-field">
+                  <label>Model</label>
+                  <select
+                    value={settings.ai.selectedModel}
+                    onChange={(e) => setAISelectedModel(e.target.value)}
+                    disabled={models.length === 0}
+                    className="settings-select"
+                  >
+                    {models.length === 0 ? (
+                      <option value="">No models available</option>
+                    ) : (
+                      models.map((model) => (
+                        <option key={model} value={model}>
+                          {model}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                  <p className="settings-field-hint">
+                    {connectionStatus === 'error'
+                      ? 'Could not connect to Ollama server'
+                      : 'Select a model for generating tag suggestions'}
+                  </p>
+                </div>
+              </>
             )}
           </div>
         </div>

@@ -2,15 +2,28 @@
   height: 100%;
   width: 100%;
   position: relative;
+  display: flex;
+  flex-direction: column;
   background-color: #1e1e2e;
 }
 
+.markdown-editor-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  min-height: 32px;
+}
+
+.markdown-editor-toolbar:empty {
+  display: none;
+}
+
 .markdown-editor .cm-editor {
-  position: absolute !important;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  flex: 1;
+  min-height: 0;
   background-color: #1e1e2e;
   border: none !important;
   outline: none !important;

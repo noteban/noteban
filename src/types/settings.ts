@@ -5,6 +5,19 @@ export type KanbanColumnSettings = {
   order: number;
 };
 
+// AI Tag Suggestion settings
+export type AITagSettings = {
+  enabled: boolean;
+  serverUrl: string;
+  selectedModel: string;
+};
+
+export const DEFAULT_AI_SETTINGS: AITagSettings = {
+  enabled: false,
+  serverUrl: 'http://localhost:11434',
+  selectedModel: '',
+};
+
 // Profile-specific settings
 export type ProfileSettings = {
   notesDirectory: string;
@@ -14,6 +27,7 @@ export type ProfileSettings = {
   autoSaveDelay: number;
   defaultView: 'notes' | 'kanban';
   columns: KanbanColumnSettings[];
+  ai: AITagSettings;
 };
 
 // A complete profile with metadata
@@ -44,6 +58,7 @@ export const DEFAULT_PROFILE_SETTINGS: ProfileSettings = {
   autoSaveDelay: 1000,
   defaultView: 'notes',
   columns: [],
+  ai: DEFAULT_AI_SETTINGS,
 };
 
 // Keep for backward compatibility
@@ -55,4 +70,4 @@ export const DEFAULT_APP_SETTINGS = {
   useNativeDecorations: false,
 };
 
-export const SETTINGS_SCHEMA_VERSION = 4;
+export const SETTINGS_SCHEMA_VERSION = 5;

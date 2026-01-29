@@ -21,11 +21,14 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
   const popoverRef = useRef<HTMLDivElement>(null);
 
   const activeNote = notes.find((n) => n.frontmatter.id === activeNoteId);
+  const isEnabled = settings.ai.enabled && settings.ai.selectedModel;
 
-  // Don't render if AI is disabled or no model selected
-  if (!settings.ai.enabled || !settings.ai.selectedModel) {
-    return null;
-  }
+  // Close popover when AI is disabled
+  useEffect(() => {
+    if (!isEnabled && isOpen) {
+      setIsOpen(false);
+    }
+  }, [isEnabled, isOpen]);
 
   const handleClick = async () => {
     if (isOpen) {
@@ -73,6 +76,11 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
+
+  // Don't render if AI is disabled or no model selected
+  if (!isEnabled) {
+    return null;
+  }
 
   return (
     <div className="tag-suggestion-container" ref={popoverRef}>

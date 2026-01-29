@@ -1,7 +1,7 @@
 use super::db::CacheDb;
 use crate::commands::notes::{Note, NoteFrontmatter};
 use chrono::{DateTime, Utc};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Transaction};
 use std::collections::HashSet;
 
 #[derive(Debug, Clone)]
@@ -121,13 +121,17 @@ impl CacheDb {
         file_mtime: i64,
         inline_tags: &[String],
     ) -> Result<(), String> {
-        let conn = self
+        let mut conn = self
             .conn
             .lock()
             .map_err(|_| "Cache lock error".to_string())?;
         let now = Utc::now().timestamp();
 
-        conn.execute(
+        let tx = conn
+            .transaction()
+            .map_err(|e| format!("Failed to start transaction: {}", e))?;
+
+        tx.execute(
             "INSERT OR REPLACE INTO notes
              (id, file_path, title, created, modified, date, column_name, order_num, content, content_hash, file_mtime, cached_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -149,32 +153,35 @@ impl CacheDb {
         .map_err(|e| format!("Failed to cache note: {}", e))?;
 
         // Update tags
-        self.update_note_tags_internal(
-            &conn,
+        self.update_note_tags_internal_tx(
+            &tx,
             &note.frontmatter.id,
             &note.frontmatter.tags,
             inline_tags,
         )?;
 
+        tx.commit()
+            .map_err(|e| format!("Failed to commit cache transaction: {}", e))?;
+
         Ok(())
     }
 
-    fn update_note_tags_internal(
+    fn update_note_tags_internal_tx(
         &self,
-        conn: &Connection,
+        tx: &Transaction<'_>,
         note_id: &str,
         frontmatter_tags: &[String],
         inline_tags: &[String],
     ) -> Result<(), String> {
         // Remove existing tag associations
-        conn.execute("DELETE FROM note_tags WHERE note_id = ?", [note_id])
+        tx.execute("DELETE FROM note_tags WHERE note_id = ?", [note_id])
             .map_err(|e| format!("Failed to clear note tags: {}", e))?;
 
         // Insert frontmatter tags
         for tag in frontmatter_tags {
             let tag_lower = tag.to_lowercase();
-            self.ensure_tag_exists(conn, &tag_lower)?;
-            conn.execute(
+            self.ensure_tag_exists_tx(tx, &tag_lower)?;
+            tx.execute(
                 "INSERT OR IGNORE INTO note_tags (note_id, tag_id, source)
                  SELECT ?, id, 'frontmatter' FROM tags WHERE name = ?",
                 params![note_id, tag_lower],
@@ -185,8 +192,8 @@ impl CacheDb {
         // Insert inline tags
         for tag in inline_tags {
             let tag_lower = tag.to_lowercase();
-            self.ensure_tag_exists(conn, &tag_lower)?;
-            conn.execute(
+            self.ensure_tag_exists_tx(tx, &tag_lower)?;
+            tx.execute(
                 "INSERT OR IGNORE INTO note_tags (note_id, tag_id, source)
                  SELECT ?, id, 'inline' FROM tags WHERE name = ?",
                 params![note_id, tag_lower],
@@ -197,8 +204,8 @@ impl CacheDb {
         Ok(())
     }
 
-    fn ensure_tag_exists(&self, conn: &Connection, tag: &str) -> Result<(), String> {
-        conn.execute(
+    fn ensure_tag_exists_tx(&self, tx: &Transaction<'_>, tag: &str) -> Result<(), String> {
+        tx.execute(
             "INSERT OR IGNORE INTO tags (name) VALUES (?)",
             [tag],
         )

@@ -102,7 +102,9 @@ export class OllamaService {
 Rules:
 - Return ONLY a JSON array of lowercase tag strings
 - Tags should be single words or hyphenated (e.g., "machine-learning")
-- Prefer existing tags when relevant
+- STRONGLY prefer using tags from the existing tags list below
+- Only suggest a new tag if no existing tag is relevant
+- Existing tags should make up at least 80% of suggestions when applicable
 - Focus on topics, themes, and categories
 ${existingTagsStr}
 

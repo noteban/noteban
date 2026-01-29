@@ -180,9 +180,14 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
     const view = editorRef.current?.view;
     if (!view) return;
 
-    // Insert at cursor position as inline tag
     const pos = view.state.selection.main.head;
-    const insertText = `#${tag} `;
+    const doc = view.state.doc;
+
+    // Check if there's a space or newline before cursor, or if we're at the start
+    const charBefore = pos > 0 ? doc.sliceString(pos - 1, pos) : '';
+    const needsSpaceBefore = pos > 0 && charBefore !== ' ' && charBefore !== '\n' && charBefore !== '\t';
+
+    const insertText = (needsSpaceBefore ? ' ' : '') + `#${tag} `;
     view.dispatch({
       changes: { from: pos, insert: insertText },
       selection: { anchor: pos + insertText.length },

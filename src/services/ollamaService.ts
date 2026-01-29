@@ -1,3 +1,7 @@
+import { isValidTag } from '../utils/tagParser';
+
+const MAX_SUGGESTED_TAGS = 5;
+
 export interface OllamaModel {
   name: string;
   modified_at: string;
@@ -41,9 +45,9 @@ export class OllamaService {
   /**
    * List available models from the Ollama server
    */
-  static async listModels(serverUrl: string): Promise<OllamaModel[]> {
+  static async listModels(serverUrl: string, signal?: AbortSignal): Promise<OllamaModel[]> {
     const response = await fetch(`${serverUrl}/api/tags`, {
-      signal: AbortSignal.timeout(10000),
+      signal: signal ?? AbortSignal.timeout(10000),
     });
     if (!response.ok) {
       throw new Error(`Failed to list models: ${response.statusText}`);
@@ -59,7 +63,8 @@ export class OllamaService {
     serverUrl: string,
     model: string,
     noteContent: string,
-    existingTags: string[]
+    existingTags: string[],
+    signal?: AbortSignal
   ): Promise<string[]> {
     const prompt = this.buildTagSuggestionPrompt(noteContent, existingTags);
 
@@ -72,7 +77,7 @@ export class OllamaService {
         stream: false,
         options: { temperature: 0.3 },
       } satisfies OllamaGenerateRequest),
-      signal: AbortSignal.timeout(60000),
+      signal: signal ?? AbortSignal.timeout(60000),
     });
 
     if (!response.ok) {
@@ -117,8 +122,8 @@ Respond with ONLY a JSON array, no explanation:`;
           return tags
             .filter((t): t is string => typeof t === 'string')
             .map((t) => t.toLowerCase().trim().replace(/^#/, ''))
-            .filter((t) => /^[a-z][a-z0-9_-]*$/.test(t))
-            .slice(0, 5);
+            .filter((t) => isValidTag(t))
+            .slice(0, MAX_SUGGESTED_TAGS);
         }
       }
     } catch {
@@ -135,10 +140,10 @@ Respond with ONLY a JSON array, no explanation:`;
         .trim()
         .toLowerCase()
         .replace(/^#/, '');
-      if (/^[a-z][a-z0-9_-]*$/.test(cleaned) && cleaned.length > 1) {
+      if (isValidTag(cleaned) && cleaned.length > 1) {
         tags.push(cleaned);
       }
     }
-    return tags.slice(0, 5);
+    return tags.slice(0, MAX_SUGGESTED_TAGS);
   }
 }

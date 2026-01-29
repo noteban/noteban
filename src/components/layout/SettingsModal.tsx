@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { X, FolderOpen, Trash2, Edit2, Copy, Plus, ExternalLink, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -63,26 +63,43 @@ export function SettingsModal() {
     };
   }, [showSettings, setShowSettings]);
 
+  // Track loaded server URL to avoid unnecessary reloads
+  const loadedServerUrlRef = useRef<string | null>(null);
+
   // Load AI models when enabled or URL changes
   useEffect(() => {
-    if (settings.ai.enabled && showSettings) {
-      loadModels();
-    }
-  }, [settings.ai.enabled, settings.ai.serverUrl, showSettings]);
+    if (!settings.ai.enabled) return;
 
-  const loadModels = async () => {
+    // Only reload if server URL changed
+    if (loadedServerUrlRef.current === settings.ai.serverUrl && models.length > 0) {
+      return;
+    }
+
+    const abortController = new AbortController();
+    loadModels(abortController.signal);
+
+    return () => {
+      abortController.abort();
+    };
+  }, [settings.ai.enabled, settings.ai.serverUrl]);
+
+  const loadModels = async (signal?: AbortSignal) => {
     setIsLoadingModels(true);
     try {
-      const modelList = await OllamaService.listModels(settings.ai.serverUrl);
+      const modelList = await OllamaService.listModels(settings.ai.serverUrl, signal);
       const modelNames = modelList.map((m) => m.name);
       setModels(modelNames);
       setConnectionStatus('connected');
+      loadedServerUrlRef.current = settings.ai.serverUrl;
 
       // Auto-select first model if none selected
       if (!settings.ai.selectedModel && modelNames.length > 0) {
         setAISelectedModel(modelNames[0]);
       }
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        return; // Request was cancelled
+      }
       debugLog.error('Failed to load Ollama models:', error);
       setModels([]);
       setConnectionStatus('error');
@@ -395,7 +412,10 @@ export function SettingsModal() {
                       placeholder="http://localhost:11434"
                     />
                     <button
-                      onClick={loadModels}
+                      onClick={() => {
+                        loadedServerUrlRef.current = null; // Force reload
+                        loadModels();
+                      }}
                       disabled={isLoadingModels}
                       className="settings-refresh-btn"
                       title="Refresh models"

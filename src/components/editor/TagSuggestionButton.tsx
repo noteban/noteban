@@ -1,9 +1,11 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Sparkles, Loader2, X } from 'lucide-react';
 import { OllamaService } from '../../services/ollamaService';
 import { useSettingsStore, useNotesStore } from '../../stores';
 import { useTags } from '../../hooks/useTags';
 import './TagSuggestionButton.css';
+
+const MIN_CONTENT_LENGTH = 50;
 
 interface TagSuggestionButtonProps {
   onInsertTag: (tag: string) => void;
@@ -19,9 +21,17 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const activeNote = notes.find((n) => n.frontmatter.id === activeNoteId);
   const isEnabled = settings.ai.enabled && settings.ai.selectedModel;
+
+  // Cleanup abort controller on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+    };
+  }, []);
 
   // Close popover when AI is disabled
   useEffect(() => {
@@ -30,13 +40,26 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
     }
   }, [isEnabled, isOpen]);
 
-  const handleClick = async () => {
+  const handleClick = useCallback(async () => {
     if (isOpen) {
-      setIsOpen(false);
+      if (!isLoading) {
+        setIsOpen(false);
+      }
       return;
     }
 
     if (!activeNote) return;
+
+    // Check minimum content length
+    if (activeNote.content.trim().length < MIN_CONTENT_LENGTH) {
+      setError(`Note is too short (min ${MIN_CONTENT_LENGTH} characters)`);
+      setIsOpen(true);
+      return;
+    }
+
+    // Abort any previous request
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = new AbortController();
 
     setIsOpen(true);
     setIsLoading(true);
@@ -47,16 +70,20 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
         settings.ai.serverUrl,
         settings.ai.selectedModel,
         activeNote.content,
-        allTags
+        allTags,
+        abortControllerRef.current.signal
       );
       setSuggestedTags(tags);
     } catch (e) {
+      if (e instanceof Error && e.name === 'AbortError') {
+        return; // Request was cancelled, don't update state
+      }
       setError(e instanceof Error ? e.message : 'Failed to get suggestions');
       setSuggestedTags([]);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isOpen, isLoading, activeNote, settings.ai.serverUrl, settings.ai.selectedModel, allTags]);
 
   const handleTagClick = (tag: string) => {
     onInsertTag(tag);

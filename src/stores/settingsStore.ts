@@ -6,6 +6,10 @@ import { DEFAULT_COLUMNS } from '../types/kanban';
 import { migrateSettings, createInitialRoot, generateProfileId } from '../utils/settingsMigration';
 import { debugLog } from '../utils/debugLogger';
 
+// Track if this window has already hydrated from localStorage
+// Used to distinguish initial load from cross-window sync events
+let hasHydrated = false;
+
 interface SettingsState {
   // Root state
   root: AppSettingsRoot;
@@ -251,6 +255,45 @@ export const useSettingsStore = create<SettingsState>()(
       name: 'noteban-settings',
       version: SETTINGS_SCHEMA_VERSION,
       migrate: migrateSettings,
+      // Prevent cross-window sync from changing this window's activeProfileId
+      // Each window maintains its own active profile after initial load
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<SettingsState>;
+
+        if (!hasHydrated) {
+          // Initial load: use persisted state normally
+          hasHydrated = true;
+          return { ...currentState, ...persisted } as SettingsState;
+        }
+
+        // Cross-window sync: preserve this window's activeProfileId and settings
+        if (!persisted.root) {
+          return currentState;
+        }
+
+        const activeProfile = persisted.root.profiles.find(
+          p => p.id === currentState.root.activeProfileId
+        );
+
+        // If this window's profile was deleted in another window, switch to first available
+        if (!activeProfile) {
+          const fallbackProfile = persisted.root.profiles[0];
+          return {
+            ...currentState,
+            root: persisted.root,
+            settings: fallbackProfile?.settings || currentState.settings,
+          } as SettingsState;
+        }
+
+        return {
+          ...currentState,
+          root: {
+            ...persisted.root,
+            activeProfileId: currentState.root.activeProfileId,
+          },
+          settings: activeProfile.settings,
+        } as SettingsState;
+      },
     }
   )
 );

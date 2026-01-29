@@ -659,12 +659,12 @@ pub fn move_note(file_path: String, target_folder: String, state: State<AppState
     // Move the attachments folder if it exists
     let mut attachments_moved = false;
     let dest_attachments = target_dir.join(format!("{}.attachments", final_stem));
-    if let Some(src_attach) = source_attachments {
+    if let Some(src_attach) = source_attachments.as_ref() {
         if src_attach.exists() && src_attach.is_dir() {
             if dest_attachments.exists() {
                 return Err("Attachments folder already exists".to_string());
             }
-            fs::rename(&src_attach, &dest_attachments)
+            fs::rename(src_attach, &dest_attachments)
                 .map_err(|e| format!("Failed to move attachments folder: {}", e))?;
             attachments_moved = true;
         }
@@ -673,11 +673,8 @@ pub fn move_note(file_path: String, target_folder: String, state: State<AppState
     // Move the note file
     if let Err(e) = fs::rename(&source, &final_dest) {
         if attachments_moved {
-            let rollback = source
-                .parent()
-                .map(|p| p.join(format!("{}.attachments", source_stem)));
-            if let Some(rollback_path) = rollback {
-                let _ = fs::rename(&dest_attachments, &rollback_path);
+            if let Some(src_attach) = source_attachments.as_ref() {
+                let _ = fs::rename(&dest_attachments, src_attach);
             }
         }
         return Err(format!("Failed to move note: {}", e));

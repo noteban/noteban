@@ -22,7 +22,7 @@
   cursor: not-allowed;
 }
 
-.tag-suggestion-btn .spinning {
+.spinning {
   animation: tag-spin 1s linear infinite;
 }
 

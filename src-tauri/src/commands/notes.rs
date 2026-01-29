@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tauri::State;
 use uuid::Uuid;
@@ -60,6 +60,7 @@ pub struct CreateNoteInput {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateNoteInput {
+    pub notes_dir: String,
     pub file_path: String,
     pub title: Option<String>,
     pub content: Option<String>,
@@ -165,8 +166,18 @@ fn atomic_write(path: &PathBuf, content: &str) -> Result<(), String> {
     })
 }
 
+fn ensure_safe_relative_path(path: &Path) -> Result<(), String> {
+    for component in path.components() {
+        match component {
+            Component::Normal(_) | Component::CurDir => {}
+            _ => return Err("Invalid relative path".to_string()),
+        }
+    }
+    Ok(())
+}
+
 /// Validate that a path is within the base directory (prevents symlink attacks)
-fn validate_path_within_base(path: &PathBuf, base: &PathBuf) -> Result<PathBuf, String> {
+fn validate_path_within_base(path: &Path, base: &Path) -> Result<PathBuf, String> {
     let canonical_path = path
         .canonicalize()
         .map_err(|e| format!("Failed to resolve path: {}", e))?;
@@ -179,6 +190,26 @@ fn validate_path_within_base(path: &PathBuf, base: &PathBuf) -> Result<PathBuf, 
     }
 
     Ok(canonical_path)
+}
+
+fn validate_existing_path_within_base(path: &Path, base: &Path) -> Result<PathBuf, String> {
+    if !path.exists() {
+        return Err("Path does not exist".to_string());
+    }
+    validate_path_within_base(path, base)
+}
+
+fn validate_folder_name(folder_name: &str) -> Result<(), String> {
+    if folder_name.trim().is_empty() {
+        return Err("Folder name cannot be empty".to_string());
+    }
+    if folder_name.contains('/') || folder_name.contains('\\') {
+        return Err("Folder name cannot contain path separators".to_string());
+    }
+    if folder_name == "." || folder_name == ".." {
+        return Err("Invalid folder name".to_string());
+    }
+    Ok(())
 }
 
 /// Sanitize a single tag to only allow safe characters
@@ -300,8 +331,10 @@ pub fn list_notes(notes_dir: String) -> Result<NotesWithFolders, String> {
 }
 
 #[tauri::command]
-pub fn read_note(file_path: String) -> Result<Note, String> {
+pub fn read_note(notes_dir: String, file_path: String) -> Result<Note, String> {
+    let base_path = PathBuf::from(&notes_dir);
     let path = PathBuf::from(&file_path);
+    validate_existing_path_within_base(&path, &base_path)?;
     parse_note(&path)
 }
 
@@ -311,6 +344,10 @@ pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Not
     let id = Uuid::new_v4().to_string();
 
     let tags = sanitize_tags(input.tags.clone().unwrap_or_default());
+
+    let base_path = PathBuf::from(&input.notes_dir);
+    fs::create_dir_all(&base_path)
+        .map_err(|e| format!("Failed to create notes directory: {}", e))?;
 
     let frontmatter = NoteFrontmatter {
         id: id.clone(),
@@ -328,13 +365,18 @@ pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Not
 
     // Determine target directory (root or subfolder)
     let target_dir = match &input.folder_path {
-        Some(folder) => PathBuf::from(&input.notes_dir).join(folder),
-        None => PathBuf::from(&input.notes_dir),
+        Some(folder) => {
+            let folder_path = PathBuf::from(folder);
+            ensure_safe_relative_path(&folder_path)?;
+            base_path.join(folder_path)
+        }
+        None => base_path.clone(),
     };
 
     // Ensure directory exists
     fs::create_dir_all(&target_dir)
         .map_err(|e| format!("Failed to create notes directory: {}", e))?;
+    validate_path_within_base(&target_dir, &base_path)?;
 
     // Generate filename from title, handling duplicates
     let base_slug = slugify(&input.title);
@@ -381,7 +423,9 @@ pub fn create_note(input: CreateNoteInput, state: State<AppState>) -> Result<Not
 
 #[tauri::command]
 pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<NoteWithTags, String> {
+    let base_path = PathBuf::from(&input.notes_dir);
     let path = PathBuf::from(&input.file_path);
+    validate_existing_path_within_base(&path, &base_path)?;
     let mut note = parse_note(&path)?;
     let mut current_path = path.clone();
     let old_file_path = input.file_path.clone();
@@ -417,6 +461,7 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
     // Rename file if title changed
     if title_changed {
         if let Some(parent) = path.parent() {
+            validate_path_within_base(parent, &base_path)?;
             // Get old attachments folder path
             let old_stem = path
                 .file_stem()
@@ -495,8 +540,10 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
 }
 
 #[tauri::command]
-pub fn delete_note(file_path: String, state: State<AppState>) -> Result<(), String> {
+pub fn delete_note(notes_dir: String, file_path: String, state: State<AppState>) -> Result<(), String> {
+    let base_path = PathBuf::from(&notes_dir);
     let path = PathBuf::from(&file_path);
+    validate_existing_path_within_base(&path, &base_path)?;
 
     if !path.exists() {
         return Err("Note file does not exist".to_string());
@@ -545,8 +592,13 @@ pub fn create_folder(
     parent_path: Option<String>,
 ) -> Result<Folder, String> {
     let base = PathBuf::from(&notes_dir);
+    validate_folder_name(&folder_name)?;
     let target = match parent_path {
-        Some(parent) => base.join(parent).join(&folder_name),
+        Some(parent) => {
+            let parent_path = PathBuf::from(parent);
+            ensure_safe_relative_path(&parent_path)?;
+            base.join(parent_path).join(&folder_name)
+        }
         None => base.join(&folder_name),
     };
 
@@ -555,6 +607,7 @@ pub fn create_folder(
     }
 
     fs::create_dir_all(&target).map_err(|e| format!("Failed to create folder: {}", e))?;
+    validate_path_within_base(&target, &base)?;
 
     let relative = target
         .strip_prefix(&base)
@@ -568,10 +621,20 @@ pub fn create_folder(
 }
 
 #[tauri::command]
-pub fn rename_folder(old_path: String, new_name: String) -> Result<Folder, String> {
+pub fn rename_folder(notes_dir: String, old_path: String, new_name: String) -> Result<Folder, String> {
+    validate_folder_name(&new_name)?;
+    let base = PathBuf::from(&notes_dir);
     let old = PathBuf::from(&old_path);
+    let canonical_old = validate_existing_path_within_base(&old, &base)?;
     if !old.exists() || !old.is_dir() {
         return Err("Folder does not exist".to_string());
+    }
+
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|e| format!("Failed to resolve base path: {}", e))?;
+    if canonical_old == canonical_base {
+        return Err("Cannot rename root folder".to_string());
     }
 
     let new = old
@@ -596,10 +659,19 @@ pub fn rename_folder(old_path: String, new_name: String) -> Result<Folder, Strin
 }
 
 #[tauri::command]
-pub fn delete_folder(folder_path: String) -> Result<(), String> {
+pub fn delete_folder(notes_dir: String, folder_path: String) -> Result<(), String> {
+    let base = PathBuf::from(&notes_dir);
     let path = PathBuf::from(&folder_path);
+    let canonical_path = validate_existing_path_within_base(&path, &base)?;
     if !path.exists() {
         return Err("Folder does not exist".to_string());
+    }
+
+    let canonical_base = base
+        .canonicalize()
+        .map_err(|e| format!("Failed to resolve base path: {}", e))?;
+    if canonical_path == canonical_base {
+        return Err("Cannot delete root notes directory".to_string());
     }
 
     fs::remove_dir_all(&path).map_err(|e| format!("Failed to delete folder: {}", e))?;
@@ -608,17 +680,28 @@ pub fn delete_folder(folder_path: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn move_note(file_path: String, target_folder: String, state: State<AppState>) -> Result<Note, String> {
+pub fn move_note(notes_dir: String, file_path: String, target_folder: String, state: State<AppState>) -> Result<Note, String> {
+    let base = PathBuf::from(&notes_dir);
     let source = PathBuf::from(&file_path);
+    validate_existing_path_within_base(&source, &base)?;
     if !source.exists() {
         return Err("Note does not exist".to_string());
     }
 
-    let target_dir = PathBuf::from(&target_folder);
+    let target_dir = {
+        let raw_target = PathBuf::from(&target_folder);
+        if raw_target.is_absolute() {
+            raw_target
+        } else {
+            ensure_safe_relative_path(&raw_target)?;
+            base.join(raw_target)
+        }
+    };
     if !target_dir.exists() {
         fs::create_dir_all(&target_dir)
             .map_err(|e| format!("Failed to create target folder: {}", e))?;
     }
+    validate_path_within_base(&target_dir, &base)?;
 
     let file_name = source.file_name().ok_or("Invalid file name")?;
     let destination = target_dir.join(file_name);

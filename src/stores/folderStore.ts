@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { invoke } from '@tauri-apps/api/core';
 import type { Folder } from '../types/folder';
+import { useSettingsStore } from './settingsStore';
 
 interface FolderState {
   folders: Folder[];
@@ -67,7 +68,12 @@ export const useFolderStore = create<FolderState>((set) => ({
   },
 
   renameFolder: async (path, newName) => {
+    const notesDir = useSettingsStore.getState().settings.notesDirectory;
+    if (!notesDir) {
+      throw new Error('Notes directory not set');
+    }
     const folder = await invoke<Folder>('rename_folder', {
+      notesDir,
       oldPath: path,
       newName,
     });
@@ -78,7 +84,11 @@ export const useFolderStore = create<FolderState>((set) => ({
   },
 
   deleteFolder: async (path) => {
-    await invoke('delete_folder', { folderPath: path });
+    const notesDir = useSettingsStore.getState().settings.notesDirectory;
+    if (!notesDir) {
+      throw new Error('Notes directory not set');
+    }
+    await invoke('delete_folder', { notesDir, folderPath: path });
     set((state) => ({
       folders: state.folders.filter((f) => !f.path.startsWith(path)),
     }));

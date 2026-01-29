@@ -52,6 +52,7 @@ export function migrateSettings(
         columns: legacy.settings?.columns?.length
           ? legacy.settings.columns
           : DEFAULT_COLUMNS,
+        ai: DEFAULT_AI_SETTINGS,
       },
     };
 

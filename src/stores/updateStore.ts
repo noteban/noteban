@@ -12,14 +12,14 @@ interface UpdateState {
   error: string | null;
   isDownloading: boolean;
   downloadProgress: number;
-  isDismissed: boolean;
+  dismissedVersion: string | null;
 
   setChecking: (checking: boolean) => void;
   setUpdateAvailable: (update: UpdateInfo | null) => void;
   setError: (error: string | null) => void;
   setDownloading: (downloading: boolean) => void;
   setDownloadProgress: (progress: number) => void;
-  dismissUpdate: () => void;
+  dismissUpdate: (version: string) => void;
   resetDismissal: () => void;
 }
 
@@ -29,13 +29,13 @@ export const useUpdateStore = create<UpdateState>((set) => ({
   error: null,
   isDownloading: false,
   downloadProgress: 0,
-  isDismissed: false,
+  dismissedVersion: null,
 
   setChecking: (checking) => set({ isChecking: checking }),
-  setUpdateAvailable: (update) => set({ updateAvailable: update, isDismissed: false }),
+  setUpdateAvailable: (update) => set({ updateAvailable: update }),
   setError: (error) => set({ error }),
   setDownloading: (downloading) => set({ isDownloading: downloading }),
   setDownloadProgress: (progress) => set({ downloadProgress: progress }),
-  dismissUpdate: () => set({ isDismissed: true }),
-  resetDismissal: () => set({ isDismissed: false }),
+  dismissUpdate: (version) => set({ dismissedVersion: version }),
+  resetDismissal: () => set({ dismissedVersion: null }),
 }));

@@ -20,19 +20,25 @@ export function useUpdater() {
     error,
     isDownloading,
     downloadProgress,
-    isDismissed,
+    dismissedVersion,
     setChecking,
     setUpdateAvailable,
     setError,
     setDownloading,
     setDownloadProgress,
     dismissUpdate,
+    resetDismissal,
   } = useUpdateStore();
 
   const disableUpdateChecks = useSettingsStore((state) => state.root.disableUpdateChecks);
 
-  const checkForUpdates = useCallback(async () => {
+  const checkForUpdates = useCallback(async (manual = true) => {
     if (isChecking) return;
+
+    // Manual check should reset dismissal so notification shows again
+    if (manual) {
+      resetDismissal();
+    }
 
     debugLog.log('Starting update check...');
     setChecking(true);
@@ -72,7 +78,7 @@ export function useUpdater() {
     } finally {
       setChecking(false);
     }
-  }, [isChecking, setChecking, setError, setUpdateAvailable]);
+  }, [isChecking, setChecking, setError, setUpdateAvailable, resetDismissal]);
 
   const downloadAndInstall = useCallback(async () => {
     if (isLinux) {
@@ -133,7 +139,7 @@ export function useUpdater() {
 
     debugLog.log('Scheduling automatic update check in 2 seconds...');
     const timer = setTimeout(() => {
-      checkForUpdates();
+      checkForUpdates(false); // Automatic check, don't reset dismissal
     }, 2000);
 
     return () => clearTimeout(timer);
@@ -145,9 +151,9 @@ export function useUpdater() {
     error,
     isDownloading,
     downloadProgress,
-    isDismissed,
+    dismissedVersion,
     isLinux,
-    checkForUpdates,
+    checkForUpdates: () => checkForUpdates(true), // External calls are manual
     downloadAndInstall,
     openReleasesPage,
     dismissUpdate,

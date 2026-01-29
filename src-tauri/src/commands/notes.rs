@@ -652,8 +652,8 @@ pub fn rename_folder(notes_dir: String, old_path: String, new_name: String) -> R
         path: new.to_string_lossy().to_string(),
         name: new_name,
         relative_path: new
-            .file_name()
-            .map(|n| n.to_string_lossy().to_string())
+            .strip_prefix(&base)
+            .map(|p| p.to_string_lossy().to_string())
             .unwrap_or_default(),
     })
 }

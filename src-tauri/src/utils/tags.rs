@@ -37,6 +37,7 @@ pub fn compute_content_hash(content: &str) -> String {
     hasher.update(content.as_bytes());
     hasher
         .finalize()
+        .as_slice()
         .iter()
         .map(|byte| format!("{:02x}", byte))
         .collect()

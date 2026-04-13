@@ -2471,7 +2471,7 @@ dependencies = [
 
 [[package]]
 name = "noteban"
-version = "3.5.1"
+version = "3.5.2"
 dependencies = [
  "atomicwrites",
  "chrono",

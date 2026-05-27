@@ -24,11 +24,19 @@
   touch-action: none;
 }
 
-.pie-menu-root[data-blur='true'] {
-  pointer-events: auto;
+.pie-menu-root[data-blur='true'] .pie-menu-blur {
+  display: block;
+}
+
+.pie-menu-blur {
+  display: none;
+  position: absolute;
+  border-radius: 50%;
   background: transparent;
+  pointer-events: none;
   backdrop-filter: blur(var(--pie-blur));
   -webkit-backdrop-filter: blur(var(--pie-blur));
+  animation: pie-menu-open var(--pie-open-duration) ease-out;
 }
 
 .pie-menu-surface {

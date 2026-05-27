@@ -282,6 +282,13 @@ function PieMenuContent(props: PieMenuProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
+      {blur && (
+        <div
+          className="pie-menu-blur"
+          aria-hidden
+          style={surfaceStyle}
+        />
+      )}
       <svg
         ref={surfaceRef}
         className="pie-menu-surface"

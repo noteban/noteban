@@ -73,7 +73,11 @@ export function SettingsModal() {
       const modelNames = modelList.map((m) => m.name);
       setModels(modelNames);
       setConnectionStatus('connected');
-      loadedServerUrlRef.current = settings.ai.serverUrl;
+      // Only cache the URL when we actually have models — otherwise a later
+      // toggle of the enable switch should retry instead of short-circuiting.
+      if (modelNames.length > 0) {
+        loadedServerUrlRef.current = settings.ai.serverUrl;
+      }
 
       // Auto-select first model if none selected
       if (!settings.ai.selectedModel && modelNames.length > 0) {

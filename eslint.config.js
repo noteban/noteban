@@ -19,5 +19,13 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+    rules: {
+      // New React Compiler-oriented rules added in eslint-plugin-react-hooks 7.1.
+      // Disabled for now; pre-existing code triggers them. See #101 for the
+      // follow-up to fix the underlying patterns and re-enable.
+      'react-hooks/preserve-manual-memoization': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/immutability': 'off',
+    },
   },
 ])

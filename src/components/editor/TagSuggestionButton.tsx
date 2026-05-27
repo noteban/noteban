@@ -11,7 +11,17 @@ interface TagSuggestionButtonProps {
   onInsertTag: (tag: string) => void;
 }
 
+// Outer gate keeps all popover/state hooks inside TagSuggestionPopover, which
+// unmounts when AI is disabled — so reopening AI starts from a clean state
+// instead of restoring whatever the popover was showing when AI was turned off.
 export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
+  const { settings } = useSettingsStore();
+  const isEnabled = settings.ai.enabled && settings.ai.selectedModel;
+  if (!isEnabled) return null;
+  return <TagSuggestionPopover onInsertTag={onInsertTag} />;
+}
+
+function TagSuggestionPopover({ onInsertTag }: TagSuggestionButtonProps) {
   const { settings } = useSettingsStore();
   const { notes, activeNoteId } = useNotesStore();
   const { allTags } = useTags();
@@ -24,7 +34,6 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const activeNote = notes.find((n) => n.frontmatter.id === activeNoteId);
-  const isEnabled = settings.ai.enabled && settings.ai.selectedModel;
 
   // Cleanup abort controller on unmount
   useEffect(() => {
@@ -32,13 +41,6 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
       abortControllerRef.current?.abort();
     };
   }, []);
-
-  // Close popover when AI is disabled
-  useEffect(() => {
-    if (!isEnabled && isOpen) {
-      setIsOpen(false);
-    }
-  }, [isEnabled, isOpen]);
 
   const handleClick = useCallback(async () => {
     if (isOpen) {
@@ -103,11 +105,6 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
-
-  // Don't render if AI is disabled or no model selected
-  if (!isEnabled) {
-    return null;
-  }
 
   return (
     <div className="tag-suggestion-container" ref={popoverRef}>

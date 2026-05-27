@@ -53,4 +53,4 @@ When recording demo videos of Noteban:
 ### Gotchas
 
 - In headless/VM environments, you may see `libEGL warning: DRI3 error` — this is harmless (no GPU acceleration).
-- The `PATH` must have Node 24 before `/exec-daemon/node` (which ships Node 22). Use: `export PATH="/home/ubuntu/.nvm/versions/node/v24.16.0/bin:$PATH"`.
+- The `PATH` must have Node 24 before `/exec-daemon/node` (which ships Node 22). Use: `export PATH="$(ls -d /home/ubuntu/.nvm/versions/node/v24.*/bin | tail -1):$PATH"`.

@@ -1,0 +1,52 @@
+# AGENTS.md
+
+## Cursor Cloud specific instructions
+
+### Overview
+
+Noteban is a Tauri v2 desktop app (React 19 + Rust) for markdown note-taking with Kanban organization. It uses npm workspaces with a sub-package at `packages/pie-menu`.
+
+### Tooling
+
+- **Node.js 24** and **Rust stable** are required (see `mise.toml`).
+- The lockfile is `package-lock.json` — use `npm` (not pnpm/yarn).
+- The pie-menu package must be built before the main app can resolve it: `npm run build -w packages/pie-menu`.
+
+### Running the app
+
+Run via Tauri, not the browser — this is a native desktop app:
+
+```sh
+export DISPLAY=:1
+npm run tauri dev
+```
+
+This starts both the Vite dev server (frontend HMR) and the Rust backend with a WebKit webview. The app is never intended to run standalone in a browser.
+
+### Key commands
+
+| Task | Command |
+|------|---------|
+| Install deps | `npm install` |
+| Lint | `npm run lint` |
+| TypeScript check | `npx tsc -b` |
+| Build pie-menu | `npm run build -w packages/pie-menu` |
+| Build frontend | `npm run build` |
+| Build Rust backend | `cd src-tauri && cargo build` |
+| Run app (dev) | `npm run tauri dev` |
+
+### Linux system dependencies (Tauri/WebKit)
+
+Required packages on Ubuntu/Debian: `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libsoup-3.0-dev`, `libjavascriptcoregtk-4.1-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `libxdo-dev`, `libssl-dev`.
+
+### Editor behavior notes
+
+- When creating a list in the markdown editor, typing `- ` on the first item and pressing Enter will auto-populate subsequent lines with `- `. You only need to type the dash on the first list item.
+- Notes are stored as markdown files with YAML frontmatter in a user-selected directory.
+- SQLite is bundled in the Rust binary (no external DB needed).
+- Ollama (AI tag suggestions) is optional and not required for core functionality.
+
+### Gotchas
+
+- In headless/VM environments, you may see `libEGL warning: DRI3 error` — this is harmless (no GPU acceleration).
+- The `PATH` must have Node 24 before `/exec-daemon/node` (which ships Node 22). Use: `export PATH="/home/ubuntu/.nvm/versions/node/v24.16.0/bin:$PATH"`.

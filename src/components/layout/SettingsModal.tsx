@@ -86,6 +86,9 @@ export function SettingsModal() {
       debugLog.error('Failed to load Ollama models:', error);
       setModels([]);
       setConnectionStatus('error');
+      // Clear the cached URL so reverting to a previously-working server
+      // triggers a fresh load instead of being short-circuited by the guard.
+      loadedServerUrlRef.current = null;
     } finally {
       setIsLoadingModels(false);
     }
@@ -95,7 +98,8 @@ export function SettingsModal() {
   useEffect(() => {
     if (!settings.ai.enabled) return;
 
-    // Only reload if server URL changed
+    // Only reload if server URL changed (loadModels clears the ref on error
+    // so a revert to a previously-working URL still triggers a fresh load).
     if (loadedServerUrlRef.current === settings.ai.serverUrl) return;
 
     const abortController = new AbortController();

@@ -42,7 +42,6 @@ export function paginateItems(
 
   if (n <= max) {
     const slots = items.map((item): Slot => ({ kind: 'item', item }));
-    while (slots.length < n) slots.push({ kind: 'empty' });
     return {
       pages: [{ slots, hasPrev: false, hasNext: false }],
       slotsPerPage: n,

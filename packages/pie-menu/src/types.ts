@@ -57,8 +57,8 @@ export interface PieMenuProps {
 export interface UsePieMenuOptions {
   /** Long-press threshold in ms for touch. Default: 350. */
   longPressMs?: number;
-  /** Allowed movement in px before a long-press is cancelled. Default: 8. */
-  movementToleranceX?: number;
+  /** Allowed movement (px, either axis) before a long-press is cancelled. Default: 8. */
+  movementTolerance?: number;
   /** Open the pie on right-click (contextmenu). Default: true. */
   enableContextMenu?: boolean;
   /** Open the pie on long-press for touch. Default: true. */

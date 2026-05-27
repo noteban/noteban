@@ -7,7 +7,7 @@ const DEFAULT_MOVE_TOLERANCE = 8;
 export function usePieMenu(options: UsePieMenuOptions = {}): UsePieMenuReturn {
   const {
     longPressMs = DEFAULT_LONG_PRESS_MS,
-    movementToleranceX = DEFAULT_MOVE_TOLERANCE,
+    movementTolerance = DEFAULT_MOVE_TOLERANCE,
     enableContextMenu = true,
     enableLongPress = true,
     haptic = true,
@@ -74,11 +74,11 @@ export function usePieMenu(options: UsePieMenuOptions = {}): UsePieMenuReturn {
       if (start.id !== e.pointerId) return;
       const dx = Math.abs(e.clientX - start.x);
       const dy = Math.abs(e.clientY - start.y);
-      if (dx > movementToleranceX || dy > movementToleranceX) {
+      if (dx > movementTolerance || dy > movementTolerance) {
         clearTimer();
       }
     },
-    [clearTimer, movementToleranceX],
+    [clearTimer, movementTolerance],
   );
 
   const onPointerUp = useCallback(

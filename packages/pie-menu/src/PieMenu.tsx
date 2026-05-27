@@ -96,7 +96,9 @@ function PieMenuContent(props: PieMenuProps) {
       setPageIndex((p) => {
         const total = paginated.totalPages;
         const next = p + delta;
-        if (wrapPages) {
+        // 2-page mode always wraps via the Next sector — per spec, page 2's
+        // Next goes back to page 1.
+        if (wrapPages || total === 2) {
           return ((next % total) + total) % total;
         }
         return Math.min(Math.max(next, 0), total - 1);

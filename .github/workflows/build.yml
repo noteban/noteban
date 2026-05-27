@@ -30,7 +30,7 @@ jobs:
             target: x86_64-apple-darwin
           - platform: macos-latest
             target: aarch64-apple-darwin
-          - platform: windows-latest
+          - platform: windows-2025-vs2026
             target: x86_64-pc-windows-msvc
 
     runs-on: ${{ matrix.platform }}

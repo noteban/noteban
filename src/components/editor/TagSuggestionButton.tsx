@@ -16,7 +16,7 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
   const { notes, activeNoteId } = useNotesStore();
   const { allTags } = useTags();
 
-  const [isOpen, setIsOpen] = useState(false);
+  const [openIntent, setOpenIntent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +25,9 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
 
   const activeNote = notes.find((n) => n.frontmatter.id === activeNoteId);
   const isEnabled = settings.ai.enabled && settings.ai.selectedModel;
+  // Derive isOpen so the popover closes automatically when AI is disabled
+  // without an effect-driven setState correction.
+  const isOpen = Boolean(isEnabled && openIntent);
 
   // Cleanup abort controller on unmount
   useEffect(() => {
@@ -33,17 +36,10 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
     };
   }, []);
 
-  // Close popover when AI is disabled
-  useEffect(() => {
-    if (!isEnabled && isOpen) {
-      setIsOpen(false);
-    }
-  }, [isEnabled, isOpen]);
-
   const handleClick = useCallback(async () => {
     if (isOpen) {
       if (!isLoading) {
-        setIsOpen(false);
+        setOpenIntent(false);
       }
       return;
     }
@@ -53,7 +49,7 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
     // Check minimum content length
     if (activeNote.content.trim().length < MIN_CONTENT_LENGTH) {
       setError(`Note is too short (min ${MIN_CONTENT_LENGTH} characters)`);
-      setIsOpen(true);
+      setOpenIntent(true);
       return;
     }
 
@@ -61,7 +57,7 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
     abortControllerRef.current?.abort();
     abortControllerRef.current = new AbortController();
 
-    setIsOpen(true);
+    setOpenIntent(true);
     setIsLoading(true);
     setError(null);
 
@@ -95,7 +91,7 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
+        setOpenIntent(false);
       }
     };
     if (isOpen) {
@@ -128,7 +124,7 @@ export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
         <div className="tag-suggestion-popover">
           <div className="tag-suggestion-header">
             <span>AI Suggested Tags</span>
-            <button onClick={() => setIsOpen(false)}>
+            <button onClick={() => setOpenIntent(false)}>
               <X size={14} />
             </button>
           </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { X, FolderOpen, Trash2, Edit2, Copy, Plus, ExternalLink, RefreshCw, CheckCircle2, XCircle } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -66,24 +66,7 @@ export function SettingsModal() {
   // Track loaded server URL to avoid unnecessary reloads
   const loadedServerUrlRef = useRef<string | null>(null);
 
-  // Load AI models when enabled or URL changes
-  useEffect(() => {
-    if (!settings.ai.enabled) return;
-
-    // Only reload if server URL changed
-    if (loadedServerUrlRef.current === settings.ai.serverUrl && models.length > 0) {
-      return;
-    }
-
-    const abortController = new AbortController();
-    loadModels(abortController.signal);
-
-    return () => {
-      abortController.abort();
-    };
-  }, [settings.ai.enabled, settings.ai.serverUrl]);
-
-  const loadModels = async (signal?: AbortSignal) => {
+  const loadModels = useCallback(async (signal?: AbortSignal) => {
     setIsLoadingModels(true);
     try {
       const modelList = await OllamaService.listModels(settings.ai.serverUrl, signal);
@@ -106,7 +89,22 @@ export function SettingsModal() {
     } finally {
       setIsLoadingModels(false);
     }
-  };
+  }, [settings.ai.serverUrl, settings.ai.selectedModel, setAISelectedModel]);
+
+  // Load AI models when enabled or URL changes
+  useEffect(() => {
+    if (!settings.ai.enabled) return;
+
+    // Only reload if server URL changed
+    if (loadedServerUrlRef.current === settings.ai.serverUrl) return;
+
+    const abortController = new AbortController();
+    loadModels(abortController.signal);
+
+    return () => {
+      abortController.abort();
+    };
+  }, [settings.ai.enabled, settings.ai.serverUrl, loadModels]);
 
   const handleSelectFolder = async () => {
     try {

@@ -46,6 +46,13 @@ Required packages on Ubuntu/Debian: `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `li
 - SQLite is bundled in the Rust binary (no external DB needed).
 - Ollama (AI tag suggestions) is optional and not required for core functionality.
 
+### Demo recording guidelines
+
+When recording demo videos of Noteban:
+
+- **Notes must start with a title.** Always type a markdown heading (e.g. `# My Note Title`) as the first line of any new note.
+- **Lists auto-continue.** After typing `- ` on the first list item and pressing Enter, the editor pre-populates subsequent lines with `- `. Do NOT manually type the dash prefix on follow-up list items — just type the text content directly.
+
 ### Gotchas
 
 - In headless/VM environments, you may see `libEGL warning: DRI3 error` — this is harmless (no GPU acceleration).

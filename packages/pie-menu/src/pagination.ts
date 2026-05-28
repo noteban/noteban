@@ -8,7 +8,7 @@ export interface Slot {
 }
 
 export interface PieMenuPage {
-  /** Slot for each sector of the page, sized to `slotsPerPage` (= `maxPerPage`). */
+  /** Slot for each rendered sector on this page. */
   slots: Slot[];
   hasPrev: boolean;
   hasNext: boolean;
@@ -16,7 +16,7 @@ export interface PieMenuPage {
 
 export interface PaginatedMenu {
   pages: PieMenuPage[];
-  /** Number of sectors rendered per page (always equal to `maxPerPage`). */
+  /** Number of sectors rendered per page; single-page menus use item count. */
   slotsPerPage: number;
   totalPages: number;
 }

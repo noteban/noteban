@@ -6,6 +6,7 @@ import {
   Folder,
   FolderOpen,
   FileText,
+  FolderInput,
   FolderPlus,
   Pencil,
   Trash2,
@@ -16,6 +17,7 @@ import { useFolderStore, useNotesStore, useSettingsStore, useUIStore } from '../
 import { FolderContextMenu } from './FolderContextMenu';
 import { ContextMenu } from './ContextMenu';
 import { MobileActionSheet } from './MobileActionSheet';
+import { MoveNoteModal } from './MoveNoteModal';
 import { useLongPress } from '../../hooks/useLongPress';
 import { useTags } from '../../hooks/useTags';
 import { matchesTagFilter } from '../../utils/tagFilterMatcher';
@@ -111,6 +113,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const [sheet, setSheet] = useState<{ title: string; items: PieMenuItem[] } | null>(null);
+  const [movingNote, setMovingNote] = useState<Note | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const useMobilePieMenu = isMobile && root.mobileInteractionMode === 'pie';
   const useMobileSheet = isMobile && root.mobileInteractionMode === 'standard';
@@ -229,6 +232,17 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     handleNoteStartRename(noteContextMenu.note);
   };
 
+  const handleNoteStartMove = (note: Note) => {
+    setMovingNote(note);
+    setNoteContextMenu(null);
+    setSheet(null);
+  };
+
+  const handleNoteContextStartMove = () => {
+    if (!noteContextMenu) return;
+    handleNoteStartMove(noteContextMenu.note);
+  };
+
   const handleFolderDelete = async () => {
     if (!folder) return;
     if (!confirm(`Delete folder "${folder.name}" and all its contents?`)) return;
@@ -329,6 +343,12 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
       label: 'Rename',
       icon: <Pencil size={18} />,
       onSelect: () => handleNoteStartRename(note),
+    },
+    {
+      id: 'move',
+      label: 'Move',
+      icon: <FolderInput size={18} />,
+      onSelect: () => handleNoteStartMove(note),
     },
     {
       id: 'delete',
@@ -473,6 +493,15 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
           onClose={() => setNoteContextMenu(null)}
           onDelete={handleNoteContextDelete}
           onRename={handleNoteContextStartRename}
+          onMove={handleNoteContextStartMove}
+        />
+      )}
+
+      {movingNote && (
+        <MoveNoteModal
+          note={movingNote}
+          notesDir={notesDir}
+          onClose={() => setMovingNote(null)}
         />
       )}
     </div>

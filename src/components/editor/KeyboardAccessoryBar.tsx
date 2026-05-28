@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { MouseEvent, PointerEvent } from 'react';
+import type { MouseEvent } from 'react';
 import {
   CornerDownLeft,
   CornerDownRight,
@@ -75,16 +75,20 @@ export function KeyboardAccessoryBar() {
   const visible =
     isIOS && editorFocused && keyboardHeight > KEYBOARD_VISIBLE_THRESHOLD_PX;
 
-  // Preserve editor focus across the tap: pointerdown.preventDefault stops
-  // the browser shifting focus to the button, so the caret stays put and
-  // the keyboard doesn't dismiss between rapid taps.
-  const onButtonPointerDown = useCallback((e: PointerEvent<HTMLButtonElement>) => {
+  // Preserve editor focus across the tap. iOS WKWebView shifts focus on
+  // mousedown for non-form elements; preventDefault on mousedown is the
+  // classic web pattern to suppress that. `pointerdown.preventDefault`
+  // alone isn't enough on WKWebView. We also stopPropagation so the
+  // edge-swipe touch listener on layoutBody never sees the event.
+  const onButtonMouseDown = useCallback((e: MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
+    e.stopPropagation();
   }, []);
 
   const fire = useCallback(
     (action: AccessoryAction) => (e: MouseEvent<HTMLButtonElement>) => {
       e.preventDefault();
+      e.stopPropagation();
       performAction(action);
     },
     [],
@@ -104,7 +108,7 @@ export function KeyboardAccessoryBar() {
           type="button"
           className="kbd-accessory-btn"
           aria-label="Outdent"
-          onPointerDown={onButtonPointerDown}
+          onMouseDown={onButtonMouseDown}
           onClick={fire('outdent')}
         >
           <CornerDownLeft size={18} />
@@ -113,7 +117,7 @@ export function KeyboardAccessoryBar() {
           type="button"
           className="kbd-accessory-btn"
           aria-label="Indent"
-          onPointerDown={onButtonPointerDown}
+          onMouseDown={onButtonMouseDown}
           onClick={fire('indent')}
         >
           <CornerDownRight size={18} />
@@ -125,7 +129,7 @@ export function KeyboardAccessoryBar() {
             type="button"
             className="kbd-accessory-btn kbd-accessory-btn-char"
             aria-label={`Insert ${label}`}
-            onPointerDown={onButtonPointerDown}
+            onMouseDown={onButtonMouseDown}
             onClick={fire(action)}
           >
             {label}
@@ -136,7 +140,7 @@ export function KeyboardAccessoryBar() {
           type="button"
           className="kbd-accessory-btn"
           aria-label="Undo"
-          onPointerDown={onButtonPointerDown}
+          onMouseDown={onButtonMouseDown}
           onClick={fire('undo')}
         >
           <Undo2 size={18} />
@@ -145,7 +149,7 @@ export function KeyboardAccessoryBar() {
           type="button"
           className="kbd-accessory-btn"
           aria-label="Redo"
-          onPointerDown={onButtonPointerDown}
+          onMouseDown={onButtonMouseDown}
           onClick={fire('redo')}
         >
           <Redo2 size={18} />

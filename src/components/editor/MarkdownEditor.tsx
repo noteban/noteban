@@ -5,6 +5,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import { EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
+import { clearActiveEditor, setActiveEditor } from '../../lib/accessoryBridge';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import { useNotesStore, useSettingsStore, useUIStore } from '../../stores';
@@ -218,6 +219,16 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
       modifierClassPlugin,
       linkTheme,
       linkClickHandler,
+      EditorView.domEventHandlers({
+        focus: (_event, view) => {
+          setActiveEditor(view);
+          return false;
+        },
+        blur: (_event, view) => {
+          clearActiveEditor(view);
+          return false;
+        },
+      }),
       EditorView.theme({
         '.cm-content': {
           fontSize: `${settings.editorFontSize}px`,

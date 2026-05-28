@@ -1,15 +1,21 @@
-// Custom UIInputAccessoryView for the WKWebView keyboard.
+// Custom keyboard shortcut bar for the WKWebView editor.
 //
-// The WKWebView's keyboard accessory view is exposed by an internal class
-// named WKContentView. We can't subclass it directly (private), but we can
-// replace its -inputAccessoryView implementation at runtime via the
-// Objective-C runtime. The class name has been stable from iOS 11 through
-// iOS 18; if Apple ever renames it the lookup returns nil and the system
-// bar reappears (acceptable degradation).
+// Uses iOS's UITextInputAssistantItem (the rounded pill that lives in the
+// QuickType bar) rather than a full-width UIInputAccessoryView toolbar.
+// Same mechanism Safari / Vivaldi use for autofill icons: tight, native
+// look that doesn't push the keyboard down or eat vertical space.
+//
+// On a focused contentEditable inside WKWebView the first responder is
+// the private WKContentView class. We can't subclass it, but we can swap
+// -inputAssistantItem (and silence -inputAccessoryView so the default
+// "Done / prev / next" form-navigation bar disappears) at runtime via
+// the Objective-C runtime. The class name has been stable from iOS 11
+// through iOS 18; if Apple ever renames it the lookup returns nil and
+// the default behaviour is restored (acceptable degradation).
 //
 // On button tap we evaluate a JavaScript expression in the enclosing
-// WKWebView; the JS side (`src/lib/accessoryBridge.ts`) routes the action
-// into the active CodeMirror EditorView.
+// WKWebView; the JS side (`src/lib/accessoryBridge.ts`) routes the
+// action into the active CodeMirror EditorView.
 
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
@@ -36,46 +42,44 @@
 }
 @end
 
-#pragma mark - Toolbar construction
+#pragma mark - Group construction
 
-static const void * NotebanAccessoryKey = &NotebanAccessoryKey;
-static const void * NotebanAccessoryTargetsKey = &NotebanAccessoryTargetsKey;
+static const void * NotebanAssistantKey = &NotebanAssistantKey;
+static const void * NotebanTargetsKey   = &NotebanTargetsKey;
 
-static UIBarButtonItem * NotebanMakeButton(NSString *title,
+static UIBarButtonItem * NotebanCharButton(NSString *title,
                                            NSString *action,
                                            WKWebView *webView,
                                            NSMutableArray *retain) {
-    NotebanAccessoryButton *target = [NotebanAccessoryButton new];
-    target.webView = webView;
-    target.action = action;
-    [retain addObject:target];
-    UIBarButtonItem *item = [[UIBarButtonItem alloc] initWithTitle:title
-                                                             style:UIBarButtonItemStylePlain
-                                                            target:target
-                                                            action:@selector(fire)];
-    return item;
+    NotebanAccessoryButton *t = [NotebanAccessoryButton new];
+    t.webView = webView;
+    t.action = action;
+    [retain addObject:t];
+    return [[UIBarButtonItem alloc] initWithTitle:title
+                                            style:UIBarButtonItemStylePlain
+                                           target:t
+                                           action:@selector(fire)];
 }
 
-static UIBarButtonItem * NotebanFlex(void) {
-    return [[UIBarButtonItem alloc]
-            initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace
-            target:nil action:nil];
+static UIBarButtonItem * NotebanIconButton(NSString *symbolName,
+                                           NSString *action,
+                                           WKWebView *webView,
+                                           NSMutableArray *retain) {
+    NotebanAccessoryButton *t = [NotebanAccessoryButton new];
+    t.webView = webView;
+    t.action = action;
+    [retain addObject:t];
+    UIImage *img = [UIImage systemImageNamed:symbolName];
+    return [[UIBarButtonItem alloc] initWithImage:img
+                                            style:UIBarButtonItemStylePlain
+                                           target:t
+                                           action:@selector(fire)];
 }
 
-static UIToolbar * NotebanBuildToolbar(WKWebView *webView) {
-    // System resizes the input accessory view to the keyboard width via the
-    // autoresizing mask; the initial width here is a placeholder.
-    UIToolbar *bar = [[UIToolbar alloc]
-        initWithFrame:CGRectMake(0, 0, 320, 44)];
-    bar.barStyle = UIBarStyleDefault;
-    bar.translucent = YES;
-    bar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
-
-    NSMutableArray<UIBarButtonItem *> *items = [NSMutableArray array];
+static UITextInputAssistantItem * NotebanBuildAssistantItem(WKWebView *webView) {
     NSMutableArray *targets = [NSMutableArray array];
 
-    // Markdown character buttons.
-    NSArray<NSArray<NSString *> *> *chars = @[
+    NSArray<NSArray<NSString *> *> *charSpec = @[
         @[@"#",  @"hash"],
         @[@"[",  @"lbracket"],
         @[@"]",  @"rbracket"],
@@ -88,70 +92,111 @@ static UIToolbar * NotebanBuildToolbar(WKWebView *webView) {
         @[@"|",  @"pipe"],
         @[@"~",  @"tilde"],
     ];
-    for (NSArray<NSString *> *pair in chars) {
-        [items addObject:NotebanMakeButton(pair[0], pair[1], webView, targets)];
-        [items addObject:NotebanFlex()];
+
+    NSMutableArray<UIBarButtonItem *> *charItems = [NSMutableArray array];
+    for (NSArray<NSString *> *pair in charSpec) {
+        [charItems addObject:NotebanCharButton(pair[0], pair[1], webView, targets)];
     }
+    UIBarButtonItemGroup *charsGroup =
+        [[UIBarButtonItemGroup alloc] initWithBarButtonItems:charItems
+                                          representativeItem:nil];
 
-    // Indent / outdent group.
-    [items addObject:NotebanMakeButton(@"⇤", @"outdent", webView, targets)];
-    [items addObject:NotebanMakeButton(@"⇥", @"indent",  webView, targets)];
-    [items addObject:NotebanFlex()];
+    UIBarButtonItemGroup *indentGroup = [[UIBarButtonItemGroup alloc]
+        initWithBarButtonItems:@[
+            NotebanIconButton(@"decrease.indent", @"outdent", webView, targets),
+            NotebanIconButton(@"increase.indent", @"indent",  webView, targets),
+        ]
+        representativeItem:nil];
 
-    // Undo / redo on the right edge.
-    [items addObject:NotebanMakeButton(@"↶", @"undo", webView, targets)];
-    [items addObject:NotebanMakeButton(@"↷", @"redo", webView, targets)];
+    UIBarButtonItemGroup *historyGroup = [[UIBarButtonItemGroup alloc]
+        initWithBarButtonItems:@[
+            NotebanIconButton(@"arrow.uturn.backward", @"undo", webView, targets),
+            NotebanIconButton(@"arrow.uturn.forward",  @"redo", webView, targets),
+        ]
+        representativeItem:nil];
 
-    bar.items = items;
+    UITextInputAssistantItem *item = [UITextInputAssistantItem new];
+    // Leading groups appear on the left of the QuickType pill, trailing on
+    // the right. Putting characters trailing matches the Vivaldi/Safari
+    // autofill pattern and leaves space for system-suggested completions
+    // on the leading edge when iOS still wants to show them.
+    item.leadingBarButtonGroups  = @[ indentGroup, historyGroup ];
+    item.trailingBarButtonGroups = @[ charsGroup ];
 
-    // Keep the per-button targets alive for the lifetime of the toolbar.
-    objc_setAssociatedObject(bar, NotebanAccessoryTargetsKey, targets,
+    objc_setAssociatedObject(item, NotebanTargetsKey, targets,
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    return bar;
+    return item;
 }
 
-#pragma mark - Swizzled -inputAccessoryView
+#pragma mark - Swizzled getters
 
-static UIView * NotebanReplacementAccessoryView(id self, SEL _cmd) {
-    UIView *cached = objc_getAssociatedObject(self, NotebanAccessoryKey);
+static UITextInputAssistantItem * NotebanReplacementAssistantItem(id self, SEL _cmd) {
+    UITextInputAssistantItem *cached =
+        objc_getAssociatedObject(self, NotebanAssistantKey);
     if (cached) return cached;
 
     UIView *view = (UIView *)self;
     while (view && ![view isKindOfClass:[WKWebView class]]) {
         view = view.superview;
     }
-    if (!view) return nil;
+    if (!view) {
+        return [UITextInputAssistantItem new];
+    }
 
-    UIToolbar *bar = NotebanBuildToolbar((WKWebView *)view);
-    objc_setAssociatedObject(self, NotebanAccessoryKey, bar,
+    UITextInputAssistantItem *item = NotebanBuildAssistantItem((WKWebView *)view);
+    objc_setAssociatedObject(self, NotebanAssistantKey, item,
                              OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    return bar;
+    return item;
+}
+
+// Returning nil here suppresses the default "Done / previous / next" form
+// navigation bar that WKContentView would otherwise stack above the
+// QuickType pill — Safari/Vivaldi style.
+static UIView * NotebanNilAccessoryView(id self, SEL _cmd) {
+    return nil;
 }
 
 #pragma mark - Public installer
 
 // Called from main.mm before the Rust entry point spins up the WKWebView.
-// Resolves the private WKContentView class at runtime and swaps its
-// -inputAccessoryView implementation. Idempotent.
+// Resolves the private WKContentView class at runtime and swaps the two
+// responder hooks. Idempotent.
 extern "C" void noteban_install_input_accessory(void) {
     static dispatch_once_t once;
     dispatch_once(&once, ^{
         Class wkContent = NSClassFromString(@"WKContentView");
         if (!wkContent) {
-            NSLog(@"[Noteban] WKContentView not found; accessory toolbar disabled");
+            NSLog(@"[Noteban] WKContentView not found; accessory bar disabled");
             return;
         }
 
-        SEL sel = @selector(inputAccessoryView);
-        Method existing = class_getInstanceMethod(wkContent, sel);
-        if (existing) {
-            method_setImplementation(existing,
-                                     (IMP)NotebanReplacementAccessoryView);
-            NSLog(@"[Noteban] accessory toolbar installed (replaced existing IMP)");
-        } else {
-            class_addMethod(wkContent, sel,
-                            (IMP)NotebanReplacementAccessoryView, "@@:");
-            NSLog(@"[Noteban] accessory toolbar installed (added new method)");
+        // inputAssistantItem — install our QuickType-pill buttons.
+        {
+            SEL sel = @selector(inputAssistantItem);
+            Method existing = class_getInstanceMethod(wkContent, sel);
+            if (existing) {
+                method_setImplementation(existing,
+                    (IMP)NotebanReplacementAssistantItem);
+            } else {
+                class_addMethod(wkContent, sel,
+                    (IMP)NotebanReplacementAssistantItem, "@@:");
+            }
         }
+
+        // inputAccessoryView — return nil so the default bulky bar
+        // disappears. Done/prev/next form navigation isn't useful in a
+        // single-textarea editor anyway.
+        {
+            SEL sel = @selector(inputAccessoryView);
+            Method existing = class_getInstanceMethod(wkContent, sel);
+            if (existing) {
+                method_setImplementation(existing, (IMP)NotebanNilAccessoryView);
+            } else {
+                class_addMethod(wkContent, sel,
+                    (IMP)NotebanNilAccessoryView, "@@:");
+            }
+        }
+
+        NSLog(@"[Noteban] accessory bar installed on WKContentView");
     });
 }

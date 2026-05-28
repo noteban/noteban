@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "Noteban",
         "width": 800,
         "height": 600,
@@ -19,7 +20,8 @@
         "minHeight": 400,
         "resizable": true,
         "fullscreen": false,
-        "decorations": false
+        "decorations": false,
+        "create": false
       }
     ],
     "security": {

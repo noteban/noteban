@@ -83,6 +83,29 @@ pub fn run() {
                 )?;
             }
 
+            // Build the main window programmatically (its tauri.conf.json
+            // entry has `create: false`) so we can attach an iOS-specific
+            // hook that suppresses WKWebView's default form accessory bar
+            // (prev / next / Done) when the soft keyboard is up.
+            let window_config = app
+                .config()
+                .app
+                .windows
+                .iter()
+                .find(|w| w.label == "main")
+                .cloned()
+                .expect("missing 'main' window config in tauri.conf.json");
+
+            #[allow(unused_mut)]
+            let mut builder = tauri::WebviewWindowBuilder::from_config(app, &window_config)?;
+
+            #[cfg(target_os = "ios")]
+            {
+                builder = builder.with_input_accessory_view_builder(|_webview| None);
+            }
+
+            builder.build()?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![

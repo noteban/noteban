@@ -16,6 +16,7 @@ import type { PieMenuItem, PieMenuOrigin } from '@noteban/pie-menu';
 import { useFolderStore, useNotesStore, useSettingsStore, useUIStore } from '../../stores';
 import { FolderContextMenu } from './FolderContextMenu';
 import { ContextMenu } from './ContextMenu';
+import { ConfirmDialog } from './ConfirmDialog';
 import { MobileActionSheet } from './MobileActionSheet';
 import { MoveNoteModal } from './MoveNoteModal';
 import { useLongPress } from '../../hooks/useLongPress';
@@ -114,6 +115,11 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
   const [renameValue, setRenameValue] = useState('');
   const [sheet, setSheet] = useState<{ title: string; items: PieMenuItem[] } | null>(null);
   const [movingNote, setMovingNote] = useState<Note | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<
+    | { kind: 'note'; note: Note }
+    | { kind: 'folder'; folder: FolderType }
+    | null
+  >(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const useMobilePieMenu = isMobile && root.mobileInteractionMode === 'pie';
   const useMobileSheet = isMobile && root.mobileInteractionMode === 'standard';
@@ -207,18 +213,15 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     setNoteContextMenu({ note, x: e.clientX, y: e.clientY });
   };
 
-  const handleNoteDelete = async (note: Note) => {
-    try {
-      await deleteNote(note.file_path);
-    } catch (error) {
-      debugLog.error('Failed to delete note:', error);
-    }
+  const handleNoteDelete = (note: Note) => {
     setNoteContextMenu(null);
+    setSheet(null);
+    setPendingDelete({ kind: 'note', note });
   };
 
-  const handleNoteContextDelete = async () => {
+  const handleNoteContextDelete = () => {
     if (!noteContextMenu) return;
-    await handleNoteDelete(noteContextMenu.note);
+    handleNoteDelete(noteContextMenu.note);
   };
 
   const handleNoteStartRename = (note: Note) => {
@@ -243,16 +246,24 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     handleNoteStartMove(noteContextMenu.note);
   };
 
-  const handleFolderDelete = async () => {
+  const handleFolderDelete = () => {
     if (!folder) return;
-    if (!confirm(`Delete folder "${folder.name}" and all its contents?`)) return;
+    setPendingDelete({ kind: 'folder', folder });
+  };
 
+  const confirmPendingDelete = async () => {
+    if (!pendingDelete) return;
     try {
-      await deleteFolder(folder.path);
-      await loadNotes(notesDir);
+      if (pendingDelete.kind === 'note') {
+        await deleteNote(pendingDelete.note.file_path);
+      } else {
+        await deleteFolder(pendingDelete.folder.path);
+        await loadNotes(notesDir);
+      }
     } catch (error) {
-      debugLog.error('Failed to delete folder:', error);
+      debugLog.error(`Failed to delete ${pendingDelete.kind}:`, error);
     }
+    setPendingDelete(null);
   };
 
   const handleRenameSubmit = async (note: Note) => {
@@ -504,6 +515,26 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
           onClose={() => setMovingNote(null)}
         />
       )}
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title={
+          pendingDelete?.kind === 'folder'
+            ? `Delete folder "${pendingDelete.folder.name}"?`
+            : pendingDelete?.kind === 'note'
+              ? `Delete note "${pendingDelete.note.frontmatter.title}"?`
+              : ''
+        }
+        message={
+          pendingDelete?.kind === 'folder'
+            ? 'This will remove the folder and all of its contents. This cannot be undone.'
+            : 'This cannot be undone.'
+        }
+        confirmLabel="Delete"
+        danger
+        onConfirm={confirmPendingDelete}
+        onCancel={() => setPendingDelete(null)}
+      />
     </div>
   );
 }

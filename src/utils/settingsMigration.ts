@@ -1,5 +1,5 @@
 import type { AppSettingsRoot, Profile, ProfileSettings, KanbanColumnSettings } from '../types/settings';
-import { DEFAULT_PROFILE_SETTINGS, DEFAULT_APP_SETTINGS, DEFAULT_AI_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
+import { DEFAULT_PROFILE_SETTINGS, DEFAULT_APP_SETTINGS, DEFAULT_AI_SETTINGS, DEFAULT_SYNC_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
 import { DEFAULT_COLUMNS } from '../types/kanban';
 
 // Old format (version 1 or unversioned)
@@ -53,6 +53,7 @@ export function migrateSettings(
           ? legacy.settings.columns
           : DEFAULT_COLUMNS,
         ai: DEFAULT_AI_SETTINGS,
+        sync: { ...DEFAULT_SYNC_SETTINGS },
       },
     };
 
@@ -105,9 +106,36 @@ export function migrateSettings(
     // Add AI settings to all profiles
     const updatedProfiles = state.root.profiles.map(profile => ({
       ...profile,
+        settings: {
+          ...profile.settings,
+          ai: DEFAULT_AI_SETTINGS,
+          sync: { ...DEFAULT_SYNC_SETTINGS },
+        },
+      }));
+
+    return {
+      root: {
+        ...state.root,
+        version: SETTINGS_SCHEMA_VERSION,
+        profiles: updatedProfiles,
+      },
+      settings: {
+        ...state.settings,
+        ai: DEFAULT_AI_SETTINGS,
+        sync: { ...DEFAULT_SYNC_SETTINGS },
+      },
+    };
+  }
+
+  // Handle version 5 -> 6 migration (add sync settings)
+  if (version === 5) {
+    const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
+
+    const updatedProfiles = state.root.profiles.map(profile => ({
+      ...profile,
       settings: {
         ...profile.settings,
-        ai: DEFAULT_AI_SETTINGS,
+        sync: { ...DEFAULT_SYNC_SETTINGS },
       },
     }));
 
@@ -119,12 +147,12 @@ export function migrateSettings(
       },
       settings: {
         ...state.settings,
-        ai: DEFAULT_AI_SETTINGS,
+        sync: { ...DEFAULT_SYNC_SETTINGS },
       },
     };
   }
 
-  // Handle version 5+ (current format) - no migration needed
+  // Handle version 6+ (current format) - no migration needed
   const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
   return state;
 }
@@ -136,6 +164,7 @@ export function createDefaultProfile(name: string = 'Default'): Profile {
     settings: {
       ...DEFAULT_PROFILE_SETTINGS,
       columns: DEFAULT_COLUMNS,
+      sync: { ...DEFAULT_SYNC_SETTINGS },
     },
   };
 }

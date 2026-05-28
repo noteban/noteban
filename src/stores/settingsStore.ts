@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppSettingsRoot, Profile, ProfileSettings, KanbanColumnSettings } from '../types/settings';
-import { DEFAULT_PROFILE_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
+import type { AppSettingsRoot, Profile, ProfileSettings, KanbanColumnSettings, SyncSettings } from '../types/settings';
+import { DEFAULT_PROFILE_SETTINGS, DEFAULT_SYNC_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
 import { DEFAULT_COLUMNS } from '../types/kanban';
 import { migrateSettings, createInitialRoot, generateProfileId } from '../utils/settingsMigration';
 import { debugLog } from '../utils/debugLogger';
@@ -40,6 +40,16 @@ interface SettingsState {
   setAIEnabled: (enabled: boolean) => void;
   setAIServerUrl: (url: string) => void;
   setAISelectedModel: (model: string) => void;
+
+  // Sync settings (profile-specific)
+  setSyncSettings: (settings: Partial<SyncSettings>) => void;
+  setNextcloudConnected: (account: {
+    serverUrl: string;
+    loginName: string;
+    userId: string;
+    displayName?: string | null;
+  }) => void;
+  disconnectNextcloud: () => void;
 
   // Getters
   getActiveProfile: () => Profile | undefined;
@@ -86,8 +96,16 @@ export const useSettingsStore = create<SettingsState>()(
             id: generateProfileId(),
             name,
             settings: sourceSettings
-              ? { ...sourceSettings, notesDirectory: '' }
-              : { ...DEFAULT_PROFILE_SETTINGS, columns: DEFAULT_COLUMNS },
+              ? {
+                  ...sourceSettings,
+                  notesDirectory: '',
+                  sync: { ...DEFAULT_SYNC_SETTINGS },
+                }
+              : {
+                  ...DEFAULT_PROFILE_SETTINGS,
+                  columns: DEFAULT_COLUMNS,
+                  sync: { ...DEFAULT_SYNC_SETTINGS },
+                },
           };
 
           debugLog.log('Creating new profile:', { name, id: newProfile.id, copiedFrom: copyFromId || 'none' });
@@ -238,6 +256,43 @@ export const useSettingsStore = create<SettingsState>()(
           updateActiveProfileSettings((s) => ({
             ...s,
             ai: { ...s.ai, selectedModel: model },
+          }));
+        },
+
+        setSyncSettings: (syncSettings: Partial<SyncSettings>) => {
+          debugLog.log('Updating sync settings:', syncSettings);
+          updateActiveProfileSettings((s) => ({
+            ...s,
+            sync: { ...s.sync, ...syncSettings },
+          }));
+        },
+
+        setNextcloudConnected: (account) => {
+          debugLog.log('Nextcloud connected:', {
+            serverUrl: account.serverUrl,
+            userId: account.userId,
+          });
+          updateActiveProfileSettings((s) => ({
+            ...s,
+            sync: {
+              ...s.sync,
+              provider: 'nextcloud',
+              enabled: true,
+              serverUrl: account.serverUrl,
+              accountLoginName: account.loginName,
+              userId: account.userId,
+              accountDisplayName: account.displayName || account.loginName,
+              lastSyncStatus: 'idle',
+              lastSyncError: null,
+              conflicts: [],
+            },
+          }));
+        },
+
+        disconnectNextcloud: () => {
+          updateActiveProfileSettings((s) => ({
+            ...s,
+            sync: { ...DEFAULT_SYNC_SETTINGS },
           }));
         },
 

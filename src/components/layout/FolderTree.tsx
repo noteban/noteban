@@ -13,6 +13,7 @@ import { useTags } from '../../hooks/useTags';
 import { matchesTagFilter } from '../../utils/tagFilterMatcher';
 import { hasTagFilter } from '../../utils/tagFilterParser';
 import { debugLog } from '../../utils/debugLogger';
+import { isMobile } from '../../utils/platform';
 import type { Folder as FolderType } from '../../types/folder';
 import type { Note } from '../../types/note';
 import './FolderTree.css';
@@ -27,7 +28,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
   const { folders, expandedFolders, toggleFolder, selectedFolder, selectFolder } =
     useFolderStore();
   const { notes, activeNoteId, setActiveNote, deleteNote, updateNote } = useNotesStore();
-  const { tagFilter, searchQuery } = useUIStore();
+  const { tagFilter, searchQuery, setMobileSidebarOpen } = useUIStore();
   const { getNoteTags } = useTags();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [noteContextMenu, setNoteContextMenu] = useState<{ note: Note; x: number; y: number } | null>(null);
@@ -113,6 +114,9 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
 
   const handleNoteClick = (note: Note) => {
     setActiveNote(note.frontmatter.id);
+    if (isMobile) {
+      setMobileSidebarOpen(false);
+    }
   };
 
   const handleNoteContextMenu = (e: React.MouseEvent, note: Note) => {

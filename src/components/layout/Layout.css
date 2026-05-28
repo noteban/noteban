@@ -17,6 +17,49 @@
   background-color: var(--bg-primary);
 }
 
+.ios-mode-pill {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--app-statusbar-height) + 10px);
+  z-index: 65;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  min-height: 48px;
+  padding: 4px;
+  background-color: rgba(30, 30, 46, 0.9);
+  border: 1px solid rgba(205, 214, 244, 0.13);
+  border-radius: 999px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.36);
+  transform: translateX(-50%);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.ios-mode-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 96px;
+  min-height: 40px;
+  padding: 0 14px;
+  color: var(--text-muted);
+  border-radius: 999px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.ios-mode-pill-btn.active {
+  background-color: var(--text-primary);
+  color: var(--bg-primary);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.26);
+}
+
 .sidebar-container {
   overflow: hidden;
   transition: width var(--transition-normal);
@@ -24,4 +67,61 @@
 
 .sidebar-container.collapsed {
   width: 0 !important;
+}
+
+.sidebar-mobile-backdrop {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .layout {
+    min-width: 0;
+  }
+
+  .layout.ios-bottom-mode .layout-main {
+    scroll-padding-bottom: calc(var(--app-statusbar-height) + 60px);
+  }
+
+  .layout-body {
+    position: relative;
+  }
+
+  .layout-main {
+    width: 100%;
+  }
+
+  .sidebar-container {
+    position: fixed;
+    top: var(--app-header-height);
+    bottom: var(--app-statusbar-height);
+    left: 0;
+    width: min(86vw, 360px);
+    max-width: 360px;
+    transform: translateX(-100%);
+    z-index: 80;
+    box-shadow: 12px 0 28px rgba(0, 0, 0, 0.28);
+    transition: transform var(--transition-normal);
+  }
+
+  .sidebar-container.mobile-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-container.mobile-dragging {
+    transition: none;
+    will-change: transform;
+  }
+
+  .sidebar-mobile-backdrop {
+    display: block;
+    position: fixed;
+    inset: var(--app-header-height) 0 var(--app-statusbar-height);
+    background-color: rgba(0, 0, 0, 0.45);
+    z-index: 70;
+  }
+
+  .sidebar-mobile-backdrop.dragging {
+    pointer-events: none;
+  }
+
 }

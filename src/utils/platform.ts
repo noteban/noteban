@@ -27,6 +27,17 @@ export const isLinux: boolean = typeof navigator !== 'undefined' && (
   /Linux/.test(navigator.platform)
 );
 
+export const isIOS: boolean = typeof navigator !== 'undefined' && (
+  /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+);
+
+export const isMobile: boolean = typeof navigator !== 'undefined' && (
+  isIOS ||
+  /Android|Mobile/.test(navigator.userAgent) ||
+  window.matchMedia?.('(max-width: 760px)').matches
+);
+
 export const modifierKey: string = isMac ? '⌘' : 'Ctrl';
 
 export const modifierKeyName: 'Meta' | 'Control' = isMac ? 'Meta' : 'Control';

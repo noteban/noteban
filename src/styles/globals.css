@@ -89,6 +89,23 @@
   /* Transitions */
   --transition-fast: 150ms ease;
   --transition-normal: 250ms ease;
+
+  /* Platform safe areas */
+  --safe-area-inset-top: 0px;
+  --safe-area-inset-right: 0px;
+  --safe-area-inset-bottom: 0px;
+  --safe-area-inset-left: 0px;
+  --app-header-height: 48px;
+  --app-statusbar-height: 24px;
+}
+
+html.platform-ios {
+  --safe-area-inset-top: env(safe-area-inset-top, 0px);
+  --safe-area-inset-right: env(safe-area-inset-right, 0px);
+  --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-inset-left: env(safe-area-inset-left, 0px);
+  --app-header-height: calc(48px + var(--safe-area-inset-top));
+  --app-statusbar-height: calc(24px + var(--safe-area-inset-bottom));
 }
 
 * {
@@ -166,6 +183,13 @@ input:focus, textarea:focus {
   border-color: var(--accent);
 }
 
+html.platform-ios input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+html.platform-ios textarea,
+html.platform-ios select,
+html.platform-ios [contenteditable="true"] {
+  font-size: max(16px, 1em);
+}
+
 ::selection {
   background-color: rgba(203, 166, 247, 0.4);
 }
@@ -226,4 +250,36 @@ input:focus, textarea:focus {
 
 .app-setup-button:disabled {
   opacity: 0.7;
+}
+
+.app-setup-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  width: 100%;
+}
+
+.app-setup-button.secondary {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.app-setup-button.secondary:hover:not(:disabled) {
+  background-color: var(--ctp-surface1);
+}
+
+@media (max-width: 760px) {
+  html, body, #root {
+    overflow: hidden;
+  }
+
+  .app-setup-content {
+    width: 100%;
+    max-width: 420px;
+    padding: var(--spacing-lg);
+  }
+
+  .app-setup-button {
+    min-height: 48px;
+  }
 }

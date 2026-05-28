@@ -3,6 +3,7 @@ import { Sparkles, Loader2, X } from 'lucide-react';
 import { OllamaService } from '../../services/ollamaService';
 import { useSettingsStore, useNotesStore } from '../../stores';
 import { useTags } from '../../hooks/useTags';
+import { isIOS } from '../../utils/platform';
 import './TagSuggestionButton.css';
 
 const MIN_CONTENT_LENGTH = 50;
@@ -15,6 +16,14 @@ interface TagSuggestionButtonProps {
 // unmounts when AI is disabled — so reopening AI starts from a clean state
 // instead of restoring whatever the popover was showing when AI was turned off.
 export function TagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
+  if (isIOS) {
+    return null;
+  }
+
+  return <DesktopTagSuggestionButton onInsertTag={onInsertTag} />;
+}
+
+function DesktopTagSuggestionButton({ onInsertTag }: TagSuggestionButtonProps) {
   const { settings } = useSettingsStore();
   const isEnabled = settings.ai.enabled && settings.ai.selectedModel;
   if (!isEnabled) return null;

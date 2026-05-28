@@ -9,12 +9,13 @@ export function UpdateNotification() {
     downloadProgress,
     dismissedVersion,
     isLinux,
+    isUpdateSupported,
     downloadAndInstall,
     openReleasesPage,
     dismissUpdate,
   } = useUpdater();
 
-  if (!updateAvailable || updateAvailable.version === dismissedVersion) {
+  if (!isUpdateSupported || !updateAvailable || updateAvailable.version === dismissedVersion) {
     return null;
   }
 

@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { X, Github, ExternalLink } from 'lucide-react';
 import { getVersion } from '@tauri-apps/api/app';
-import { open } from '@tauri-apps/plugin-shell';
 import { useUIStore } from '../../stores';
 import { useUpdater } from '../../hooks';
+import { openExternalUrl } from '../../utils/externalOpen';
 import appIcon from '../../../src-tauri/icons/128x128.png';
 import './AboutModal.css';
 
@@ -12,7 +12,7 @@ const GITHUB_URL = 'https://github.com/noteban/noteban';
 
 export function AboutModal() {
   const { showAbout, setShowAbout } = useUIStore();
-  const { checkForUpdates, isChecking, updateAvailable } = useUpdater();
+  const { checkForUpdates, isChecking, updateAvailable, isUpdateSupported } = useUpdater();
   const modalRef = useRef<HTMLDivElement>(null);
   const [version, setVersion] = useState<string>('');
 
@@ -45,7 +45,7 @@ export function AboutModal() {
   }, [showAbout, setShowAbout]);
 
   const handleOpenGitHub = async () => {
-    await open(GITHUB_URL);
+    await openExternalUrl(GITHUB_URL);
   };
 
   if (!showAbout) return null;
@@ -75,21 +75,23 @@ export function AboutModal() {
             <p>Built with Tauri, React, and TypeScript.</p>
           </div>
 
-          <div className="about-update-section">
-            {updateAvailable ? (
-              <div className="about-update-available">
-                <span>Update available: v{updateAvailable.version}</span>
-              </div>
-            ) : (
-              <button
-                className="about-check-update-btn"
-                onClick={checkForUpdates}
-                disabled={isChecking}
-              >
-                {isChecking ? 'Checking...' : 'Check for Updates'}
-              </button>
-            )}
-          </div>
+          {isUpdateSupported && (
+            <div className="about-update-section">
+              {updateAvailable ? (
+                <div className="about-update-available">
+                  <span>Update available: v{updateAvailable.version}</span>
+                </div>
+              ) : (
+                <button
+                  className="about-check-update-btn"
+                  onClick={checkForUpdates}
+                  disabled={isChecking}
+                >
+                  {isChecking ? 'Checking...' : 'Check for Updates'}
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="about-links">
             <button className="about-link-btn" onClick={handleOpenGitHub}>

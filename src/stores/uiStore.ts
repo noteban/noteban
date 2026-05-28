@@ -15,6 +15,7 @@ interface UIState {
   currentView: View;
   sidebarWidth: number;
   sidebarCollapsed: boolean;
+  mobileSidebarOpen: boolean;
   searchQuery: string;
   showSettings: boolean;
   showAbout: boolean;
@@ -24,6 +25,7 @@ interface UIState {
   setSidebarWidth: (width: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
   toggleSidebarCollapsed: () => void;
+  setMobileSidebarOpen: (open: boolean) => void;
   setSearchQuery: (query: string) => void;
   setShowSettings: (show: boolean) => void;
   setShowAbout: (show: boolean) => void;
@@ -42,6 +44,7 @@ export const useUIStore = create<UIState>()(
       currentView: 'notes',
       sidebarWidth: 280,
       sidebarCollapsed: false,
+      mobileSidebarOpen: false,
       searchQuery: '',
       showSettings: false,
       showAbout: false,
@@ -51,6 +54,7 @@ export const useUIStore = create<UIState>()(
       setSidebarWidth: (width) => set({ sidebarWidth: width }),
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       toggleSidebarCollapsed: () => set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
+      setMobileSidebarOpen: (open) => set({ mobileSidebarOpen: open }),
       setSearchQuery: (query) => set({ searchQuery: query }),
       setShowSettings: (show) => set({ showSettings: show }),
       setShowAbout: (show) => set({ showAbout: show }),

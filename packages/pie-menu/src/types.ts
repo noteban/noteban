@@ -61,7 +61,9 @@ export interface UsePieMenuOptions {
   movementTolerance?: number;
   /** Open the pie on right-click (contextmenu). Default: true. */
   enableContextMenu?: boolean;
-  /** Open the pie on long-press for touch. Default: true. */
+  /** Open the pie on primary mouse click. Default: false. */
+  enableClick?: boolean;
+  /** Open the pie on long-press for touch, pen, or primary mouse. Default: true. */
   enableLongPress?: boolean;
   /** Fire a haptic tick on open if `navigator.vibrate` exists. Default: true. */
   haptic?: boolean;

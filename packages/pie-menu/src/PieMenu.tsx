@@ -20,18 +20,18 @@ function isTouchPrimary(): boolean {
   return window.matchMedia?.('(pointer: coarse)').matches ?? false;
 }
 
-function ChevronUp({ size = 16 }: { size?: number }) {
+function ChevronLeft({ size = 16 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="18 15 12 9 6 15" />
+      <polyline points="15 18 9 12 15 6" />
     </svg>
   );
 }
 
-function ChevronDown({ size = 16 }: { size?: number }) {
+function ChevronRight({ size = 16 }: { size?: number }) {
   return (
     <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="6 9 12 15 18 9" />
+      <polyline points="9 18 15 12 9 6" />
     </svg>
   );
 }
@@ -397,7 +397,7 @@ function SectorLabel({ slot, x, y, radius }: SectorLabelProps) {
           height={iconSize}
         >
           <div className="pie-menu-icon">
-            <ChevronUp size={iconSize} />
+            <ChevronLeft size={iconSize} />
           </div>
         </foreignObject>
       </g>
@@ -414,7 +414,7 @@ function SectorLabel({ slot, x, y, radius }: SectorLabelProps) {
           height={iconSize}
         >
           <div className="pie-menu-icon">
-            <ChevronDown size={iconSize} />
+            <ChevronRight size={iconSize} />
           </div>
         </foreignObject>
       </g>

@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PieMenuOrigin, UsePieMenuOptions, UsePieMenuReturn } from './types';
 
 const DEFAULT_LONG_PRESS_MS = 350;
@@ -9,6 +9,7 @@ export function usePieMenu(options: UsePieMenuOptions = {}): UsePieMenuReturn {
     longPressMs = DEFAULT_LONG_PRESS_MS,
     movementTolerance = DEFAULT_MOVE_TOLERANCE,
     enableContextMenu = true,
+    enableClick = false,
     enableLongPress = true,
     haptic = true,
   } = options;
@@ -17,12 +18,26 @@ export function usePieMenu(options: UsePieMenuOptions = {}): UsePieMenuReturn {
   const [origin, setOrigin] = useState<PieMenuOrigin>({ x: 0, y: 0 });
 
   const longPressTimer = useRef<number | null>(null);
+  const longPressOpenedPointer = useRef<number | null>(null);
   const pointerStart = useRef<{ x: number; y: number; id: number } | null>(null);
+  const contextMenuOpenTimer = useRef<number | null>(null);
+  const contextMenuReleaseHandler = useRef<(() => void) | null>(null);
 
   const clearTimer = useCallback(() => {
     if (longPressTimer.current !== null) {
       window.clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
+    }
+  }, []);
+
+  const clearContextMenuOpen = useCallback(() => {
+    if (contextMenuOpenTimer.current !== null) {
+      window.clearTimeout(contextMenuOpenTimer.current);
+      contextMenuOpenTimer.current = null;
+    }
+    if (contextMenuReleaseHandler.current) {
+      window.removeEventListener('pointerup', contextMenuReleaseHandler.current, true);
+      contextMenuReleaseHandler.current = null;
     }
   }, []);
 
@@ -39,32 +54,66 @@ export function usePieMenu(options: UsePieMenuOptions = {}): UsePieMenuReturn {
 
   const close = useCallback(() => {
     clearTimer();
+    clearContextMenuOpen();
     setOpen(false);
-  }, [clearTimer]);
+  }, [clearContextMenuOpen, clearTimer]);
 
   const onContextMenu = useCallback(
     (e: React.MouseEvent) => {
       if (!enableContextMenu) return;
       e.preventDefault();
-      openAt({ x: e.clientX, y: e.clientY });
+      clearTimer();
+      clearContextMenuOpen();
+
+      const nextOrigin = { x: e.clientX, y: e.clientY };
+      const openAfterRelease = () => {
+        clearContextMenuOpen();
+        openAt(nextOrigin);
+      };
+
+      if (e.buttons !== 0) {
+        contextMenuReleaseHandler.current = openAfterRelease;
+        window.addEventListener('pointerup', openAfterRelease, true);
+        contextMenuOpenTimer.current = window.setTimeout(openAfterRelease, 700);
+        return;
+      }
+
+      contextMenuOpenTimer.current = window.setTimeout(openAfterRelease, 0);
     },
-    [enableContextMenu, openAt],
+    [clearContextMenuOpen, clearTimer, enableContextMenu, openAt],
   );
+
+  useEffect(() => {
+    return () => {
+      clearTimer();
+      clearContextMenuOpen();
+    };
+  }, [clearContextMenuOpen, clearTimer]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {
-      if (!enableLongPress) return;
-      if (e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+      const isPrimaryMouse = e.pointerType === 'mouse' && e.button === 0;
+      const supportsLongPress =
+        isPrimaryMouse || e.pointerType === 'touch' || e.pointerType === 'pen';
+
+      if (!supportsLongPress) return;
+      if (!enableLongPress && !(enableClick && isPrimaryMouse)) return;
+
       pointerStart.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+      longPressOpenedPointer.current = null;
       clearTimer();
+      if (!enableLongPress) return;
+
       const startX = e.clientX;
       const startY = e.clientY;
+      const pointerId = e.pointerId;
       longPressTimer.current = window.setTimeout(() => {
         longPressTimer.current = null;
+        longPressOpenedPointer.current = pointerId;
         openAt({ x: startX, y: startY });
       }, longPressMs);
     },
-    [enableLongPress, longPressMs, clearTimer, openAt],
+    [clearTimer, enableClick, enableLongPress, longPressMs, openAt],
   );
 
   const onPointerMove = useCallback(
@@ -75,6 +124,8 @@ export function usePieMenu(options: UsePieMenuOptions = {}): UsePieMenuReturn {
       const dx = Math.abs(e.clientX - start.x);
       const dy = Math.abs(e.clientY - start.y);
       if (dx > movementTolerance || dy > movementTolerance) {
+        pointerStart.current = null;
+        longPressOpenedPointer.current = null;
         clearTimer();
       }
     },
@@ -83,18 +134,34 @@ export function usePieMenu(options: UsePieMenuOptions = {}): UsePieMenuReturn {
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
-      if (pointerStart.current?.id === e.pointerId) {
+      const startedHere = pointerStart.current?.id === e.pointerId;
+      const openedByLongPress = longPressOpenedPointer.current === e.pointerId;
+
+      if (startedHere) {
         pointerStart.current = null;
       }
+      if (openedByLongPress) {
+        longPressOpenedPointer.current = null;
+      }
       clearTimer();
+
+      if (openedByLongPress) return;
+
+      if (enableClick && startedHere && e.pointerType === 'mouse' && e.button === 0) {
+        openAt({ x: e.clientX, y: e.clientY });
+        return;
+      }
     },
-    [clearTimer],
+    [clearTimer, enableClick, openAt],
   );
 
   const onPointerCancel = useCallback(
     (e: React.PointerEvent) => {
       if (pointerStart.current?.id === e.pointerId) {
         pointerStart.current = null;
+      }
+      if (longPressOpenedPointer.current === e.pointerId) {
+        longPressOpenedPointer.current = null;
       }
       clearTimer();
     },

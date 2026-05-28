@@ -106,6 +106,10 @@ export function Layout({ children }: LayoutProps) {
 
         gesture.active = true;
         setIsEdgeDragging(true);
+        // Dismiss the soft keyboard as soon as the edge-swipe is recognized
+        // so the sidebar slides in over an unobstructed layout.
+        const focused = document.activeElement as HTMLElement | null;
+        focused?.blur?.();
       }
 
       if (event.cancelable) {

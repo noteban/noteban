@@ -75,6 +75,16 @@ export function KeyboardAccessoryBar() {
   const visible =
     isIOS && editorFocused && keyboardHeight > KEYBOARD_VISIBLE_THRESHOLD_PX;
 
+  // WKWebView always shows its own ~44pt form-accessory bar (prev/next/Done)
+  // when a contenteditable is focused, and iOS exposes no public API to hide
+  // it. Position our pill to overlap that band so it visually covers the
+  // system bar instead of stacking above it.
+  const IOS_FORM_BAR_PX = 44;
+  const pillBottom = Math.max(
+    4,
+    keyboardHeight - IOS_FORM_BAR_PX,
+  );
+
   // Preserve editor focus across the tap: pointerdown.preventDefault stops
   // the browser shifting focus to the button, so the caret stays put and
   // the keyboard doesn't dismiss between rapid taps.
@@ -96,7 +106,7 @@ export function KeyboardAccessoryBar() {
     <div
       className="kbd-accessory-root"
       data-visible={visible ? 'true' : 'false'}
-      style={{ bottom: `${keyboardHeight + 6}px` }}
+      style={{ bottom: `${pillBottom}px` }}
       aria-hidden={!visible}
     >
       <div className="kbd-accessory-pill" role="toolbar" aria-label="Editor shortcuts">

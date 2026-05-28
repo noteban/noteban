@@ -6,6 +6,7 @@ import { invoke } from '@tauri-apps/api/core';
 import type { UnwatchFn } from '@tauri-apps/plugin-fs';
 import { Layout, SettingsModal } from './components/layout';
 import { NoteEditor } from './components/editor';
+import { KeyboardAccessoryBar } from './components/editor/KeyboardAccessoryBar';
 import { KanbanBoard } from './components/kanban';
 import { useNotesStore } from './stores/notesStore';
 import { useSettingsStore } from './stores/settingsStore';
@@ -365,13 +366,16 @@ function App() {
   }
 
   return (
-    <Layout>
-      {currentView === 'notes' ? (
-        <NoteEditor />
-      ) : (
-        <KanbanBoard />
-      )}
-    </Layout>
+    <>
+      <Layout>
+        {currentView === 'notes' ? (
+          <NoteEditor />
+        ) : (
+          <KanbanBoard />
+        )}
+      </Layout>
+      <KeyboardAccessoryBar />
+    </>
   );
 }
 

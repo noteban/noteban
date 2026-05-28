@@ -1,8 +1,7 @@
 import { indentLess, indentMore, redo, undo } from '@codemirror/commands';
 import type { EditorView } from '@codemirror/view';
-import { isIOS } from '../utils/platform';
 
-type AccessoryAction =
+export type AccessoryAction =
   | 'hash'
   | 'lbracket'
   | 'rbracket'
@@ -34,26 +33,39 @@ const CHAR_FOR_ACTION: Partial<Record<AccessoryAction, string>> = {
 };
 
 let currentView: EditorView | null = null;
+const listeners = new Set<(view: EditorView | null) => void>();
+
+function emit(): void {
+  for (const cb of listeners) cb(currentView);
+}
 
 export function setActiveEditor(view: EditorView): void {
+  if (currentView === view) return;
   currentView = view;
+  emit();
 }
 
 export function clearActiveEditor(view: EditorView): void {
-  // Only clear if the blurring view is the one we're tracking — guards against
-  // a focus-on-new / blur-on-old ordering when remounting the editor.
-  if (currentView === view) currentView = null;
+  // Identity-guarded so a focus-on-new / blur-on-old race during remounts
+  // doesn't null out the new editor.
+  if (currentView !== view) return;
+  currentView = null;
+  emit();
 }
 
-declare global {
-  interface Window {
-    __notebanAccessory?: {
-      fire: (action: AccessoryAction) => void;
-    };
-  }
+export function subscribeActiveEditor(
+  cb: (view: EditorView | null) => void,
+): () => void {
+  listeners.add(cb);
+  // Fire immediately with the current value so subscribers don't need a
+  // separate initial read.
+  cb(currentView);
+  return () => {
+    listeners.delete(cb);
+  };
 }
 
-function fire(action: AccessoryAction): void {
+export function performAction(action: AccessoryAction): void {
   const view = currentView;
   if (!view) return;
 
@@ -84,11 +96,4 @@ function fire(action: AccessoryAction): void {
       break;
   }
   view.focus();
-}
-
-export function installAccessoryBridge(): void {
-  if (!isIOS) return;
-  if (typeof window === 'undefined') return;
-  if (window.__notebanAccessory) return;
-  window.__notebanAccessory = { fire };
 }

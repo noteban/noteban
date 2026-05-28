@@ -10,7 +10,6 @@
 		02894F3DEB1CA604332D9421 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 6B14A0CC55360933CDF85C3C /* Assets.xcassets */; };
 		1979CFE0C3A14B593F5CADE8 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = EB97F683E8F2AFB122DF75CD /* LaunchScreen.storyboard */; };
 		338016C89937F84CDE387EDF /* main.mm in Sources */ = {isa = PBXBuildFile; fileRef = 8EFA181414BE1A6F1F960C34 /* main.mm */; };
-		A1B2C3D4E5F60718293A4B5C /* NotebanInputAccessory.mm in Sources */ = {isa = PBXBuildFile; fileRef = 0F1E2D3C4B5A69788796A5B4 /* NotebanInputAccessory.mm */; };
 		621F5D448A2E0A9E5037BDB9 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 920A38C2C6DBB14B50EB02F4 /* QuartzCore.framework */; };
 		99A441FF60D66790DAC69277 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FABCB17094CDBDB0BB867FC0 /* Metal.framework */; };
 		CEC342469357619B5FE430E4 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9A23643C15E14FAE548CF2CA /* WebKit.framework */; };
@@ -38,7 +37,6 @@
 		6DFC9E24E925A9A401B5A991 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		7E1B359E12D920D4346A6EB3 /* notes.rs */ = {isa = PBXFileReference; path = notes.rs; sourceTree = "<group>"; };
 		8EFA181414BE1A6F1F960C34 /* main.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = main.mm; sourceTree = "<group>"; };
-		0F1E2D3C4B5A69788796A5B4 /* NotebanInputAccessory.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = NotebanInputAccessory.mm; sourceTree = "<group>"; };
 		920A38C2C6DBB14B50EB02F4 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		9A23643C15E14FAE548CF2CA /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
 		9E44B8BC516D70F50010D0DE /* lib.rs */ = {isa = PBXFileReference; path = lib.rs; sourceTree = "<group>"; };
@@ -93,7 +91,6 @@
 			isa = PBXGroup;
 			children = (
 				8EFA181414BE1A6F1F960C34 /* main.mm */,
-				0F1E2D3C4B5A69788796A5B4 /* NotebanInputAccessory.mm */,
 				0DFD83475ABAE7ED0E017A25 /* bindings */,
 			);
 			path = noteban;
@@ -293,7 +290,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				338016C89937F84CDE387EDF /* main.mm in Sources */,
-				A1B2C3D4E5F60718293A4B5C /* NotebanInputAccessory.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1249,9 +1249,20 @@ fn href_to_relative_path(href: &str, user_id: &str, remote_folder: &str) -> Opti
     }
 
     let prefix = format!("{}/", folder);
-    after_user
+    let raw = after_user
         .strip_prefix(&prefix)
-        .map(|path| path.trim_matches('/').to_string())
+        .map(|path| path.trim_matches('/').to_string())?;
+
+    // Strip any `..` / root components so a malicious or compromised
+    // WebDAV server cannot return paths that escape `local_root` when
+    // joined for write_local_file / delete_local_file.
+    let normalized = normalize_relative_path(&raw);
+    if normalized.is_empty() && !raw.is_empty() {
+        // Path consisted entirely of traversal components; reject it.
+        None
+    } else {
+        Some(normalized)
+    }
 }
 
 fn join_relative(first: &str, second: &str) -> String {
@@ -1327,7 +1338,7 @@ fn webdav_method(method: &'static str) -> Result<Method, String> {
 }
 
 fn user_agent() -> &'static str {
-    "Noteban/3.5"
+    concat!("Noteban/", env!("CARGO_PKG_VERSION"))
 }
 
 #[cfg(test)]
@@ -1364,6 +1375,31 @@ mod tests {
                 "Noteban"
             ),
             Some("folder/note 1.md".to_string())
+        );
+    }
+
+    #[test]
+    fn href_to_relative_path_rejects_traversal() {
+        // A malicious server sneaks ../ into the href. normalize_relative_path
+        // strips the traversal components so the resulting local path can
+        // never escape the notes directory.
+        assert_eq!(
+            href_to_relative_path(
+                "/remote.php/dav/files/alice/Noteban/..%2F..%2Fsecret.txt",
+                "alice",
+                "Noteban"
+            ),
+            Some("secret.txt".to_string())
+        );
+        // Path consisting entirely of traversal components is rejected
+        // outright so we never write to an empty/root-relative location.
+        assert_eq!(
+            href_to_relative_path(
+                "/remote.php/dav/files/alice/Noteban/..%2F..",
+                "alice",
+                "Noteban"
+            ),
+            None
         );
     }
 

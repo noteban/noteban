@@ -23,23 +23,23 @@ export function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
-  const confirmRef = useRef<HTMLButtonElement>(null);
+  // Focus Cancel by default so an Enter press doesn't accidentally fire the
+  // destructive action. Confirm still works via Tab + Enter, or via a tap /
+  // click on the button itself. Esc dismisses.
+  const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
-    confirmRef.current?.focus();
+    cancelRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
         onCancel();
-      } else if (e.key === 'Enter') {
-        e.preventDefault();
-        onConfirm();
       }
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onCancel, onConfirm]);
+  }, [open, onCancel]);
 
   if (!open) return null;
 
@@ -61,6 +61,7 @@ export function ConfirmDialog({
         {message && <p className="confirm-dialog-message">{message}</p>}
         <div className="confirm-dialog-actions">
           <button
+            ref={cancelRef}
             type="button"
             className="confirm-dialog-button"
             onClick={onCancel}
@@ -68,7 +69,6 @@ export function ConfirmDialog({
             {cancelLabel}
           </button>
           <button
-            ref={confirmRef}
             type="button"
             className="confirm-dialog-button confirm-dialog-button-primary"
             data-danger={danger ? 'true' : 'false'}

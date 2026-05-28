@@ -35,6 +35,7 @@ function App() {
   const debounceTimerRef = useRef<number | null>(null);
   const pendingChangesRef = useRef<FileChangeEvent[]>([]);
   const autoSyncTimerRef = useRef<number | null>(null);
+  const autoSyncDeadlineRef = useRef<number>(Number.POSITIVE_INFINITY);
   const lastAutoSyncRef = useRef(0);
   const prevNotesSignatureRef = useRef('');
 
@@ -160,11 +161,22 @@ function App() {
       return;
     }
 
+    // Don't replace a sooner scheduled sync with a later one. Otherwise the
+    // initial 1s startup sync gets clobbered by the 8s notes-load sync,
+    // delaying first sync on every app restart with existing notes.
+    const newDeadline = Date.now() + delayMs;
+    if (autoSyncTimerRef.current && newDeadline >= autoSyncDeadlineRef.current) {
+      return;
+    }
+
     if (autoSyncTimerRef.current) {
       clearTimeout(autoSyncTimerRef.current);
     }
+    autoSyncDeadlineRef.current = newDeadline;
 
     autoSyncTimerRef.current = window.setTimeout(() => {
+      autoSyncTimerRef.current = null;
+      autoSyncDeadlineRef.current = Number.POSITIVE_INFINITY;
       const now = Date.now();
       if (now - lastAutoSyncRef.current < 30_000) {
         return;
@@ -190,7 +202,9 @@ function App() {
     return () => {
       if (autoSyncTimerRef.current) {
         clearTimeout(autoSyncTimerRef.current);
+        autoSyncTimerRef.current = null;
       }
+      autoSyncDeadlineRef.current = Number.POSITIVE_INFINITY;
     };
   }, [
     root.activeProfileId,

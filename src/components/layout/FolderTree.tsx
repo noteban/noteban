@@ -1,11 +1,17 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import type { HTMLAttributes, ReactNode } from 'react';
 import {
   ChevronRight,
   ChevronDown,
   Folder,
   FolderOpen,
   FileText,
+  FolderPlus,
+  Pencil,
+  Trash2,
 } from 'lucide-react';
+import { PieMenu, usePieMenu } from '@noteban/pie-menu';
+import type { PieMenuItem, PieMenuOrigin } from '@noteban/pie-menu';
 import { useFolderStore, useNotesStore, useSettingsStore, useUIStore } from '../../stores';
 import { FolderContextMenu } from './FolderContextMenu';
 import { ContextMenu } from './ContextMenu';
@@ -18,6 +24,54 @@ import type { Folder as FolderType } from '../../types/folder';
 import type { Note } from '../../types/note';
 import './FolderTree.css';
 
+type TriggerProps = HTMLAttributes<HTMLElement>;
+
+interface MobilePieMenuTriggerProps {
+  enabled: boolean;
+  items: PieMenuItem[] | ((origin: PieMenuOrigin) => PieMenuItem[]);
+  children: (triggerProps: TriggerProps) => ReactNode;
+}
+
+function MobilePieMenuTrigger({ enabled, items, children }: MobilePieMenuTriggerProps) {
+  const pie = usePieMenu({
+    enableContextMenu: true,
+    enableLongPress: enabled,
+    movementTolerance: 10,
+  });
+
+  if (!enabled) {
+    return <>{children({})}</>;
+  }
+
+  const resolvedItems = typeof items === 'function' ? items(pie.origin) : items;
+
+  return (
+    <>
+      {children({
+        ...pie.triggerProps,
+        onClickCapture: (event) => {
+          if (pie.open) {
+            event.preventDefault();
+            event.stopPropagation();
+          }
+        },
+      })}
+      <PieMenu
+        open={pie.open}
+        origin={pie.origin}
+        items={resolvedItems}
+        onClose={pie.close}
+        maxPerPage={4}
+        size={216}
+        deadZoneRatio={0.28}
+        blur
+        blurStrength={5}
+        className="noteban-mobile-pie-menu"
+      />
+    </>
+  );
+}
+
 interface FolderNodeProps {
   folder: FolderType | null;
   depth: number;
@@ -25,16 +79,22 @@ interface FolderNodeProps {
 }
 
 function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
-  const { folders, expandedFolders, toggleFolder, selectedFolder, selectFolder } =
+  const { folders, expandedFolders, toggleFolder, selectedFolder, selectFolder, deleteFolder } =
     useFolderStore();
-  const { notes, activeNoteId, setActiveNote, deleteNote, updateNote } = useNotesStore();
+  const { notes, activeNoteId, setActiveNote, deleteNote, updateNote, loadNotes } = useNotesStore();
   const { tagFilter, searchQuery, setMobileSidebarOpen } = useUIStore();
+  const { root } = useSettingsStore();
   const { getNoteTags } = useTags();
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    initialMode?: 'menu' | 'create' | 'rename';
+  } | null>(null);
   const [noteContextMenu, setNoteContextMenu] = useState<{ note: Note; x: number; y: number } | null>(null);
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const useMobilePieMenu = isMobile && root.mobileInteractionMode === 'pie';
 
   useEffect(() => {
     if (renamingNoteId && renameInputRef.current) {
@@ -125,21 +185,41 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     setNoteContextMenu({ note, x: e.clientX, y: e.clientY });
   };
 
-  const handleNoteDelete = async () => {
-    if (!noteContextMenu) return;
+  const handleNoteDelete = async (note: Note) => {
     try {
-      await deleteNote(noteContextMenu.note.file_path);
+      await deleteNote(note.file_path);
     } catch (error) {
       debugLog.error('Failed to delete note:', error);
     }
     setNoteContextMenu(null);
   };
 
-  const handleNoteStartRename = () => {
+  const handleNoteContextDelete = async () => {
     if (!noteContextMenu) return;
-    setRenamingNoteId(noteContextMenu.note.frontmatter.id);
-    setRenameValue(noteContextMenu.note.frontmatter.title);
+    await handleNoteDelete(noteContextMenu.note);
+  };
+
+  const handleNoteStartRename = (note: Note) => {
+    setRenamingNoteId(note.frontmatter.id);
+    setRenameValue(note.frontmatter.title);
     setNoteContextMenu(null);
+  };
+
+  const handleNoteContextStartRename = () => {
+    if (!noteContextMenu) return;
+    handleNoteStartRename(noteContextMenu.note);
+  };
+
+  const handleFolderDelete = async () => {
+    if (!folder) return;
+    if (!confirm(`Delete folder "${folder.name}" and all its contents?`)) return;
+
+    try {
+      await deleteFolder(folder.path);
+      await loadNotes(notesDir);
+    } catch (error) {
+      debugLog.error('Failed to delete folder:', error);
+    }
   };
 
   const handleRenameSubmit = async (note: Note) => {
@@ -186,34 +266,93 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
     e.dataTransfer.dropEffect = 'move';
   };
 
+  const getFolderPieItems = (origin: PieMenuOrigin): PieMenuItem[] => [
+    {
+      id: 'select',
+      label: 'Open',
+      icon: isExpanded ? <FolderOpen size={18} /> : <Folder size={18} />,
+      onSelect: handleSelect,
+    },
+    {
+      id: 'new-folder',
+      label: 'New',
+      icon: <FolderPlus size={18} />,
+      onSelect: () => setContextMenu({ x: origin.x, y: origin.y, initialMode: 'create' }),
+    },
+    ...(folder
+      ? [
+          {
+            id: 'rename',
+            label: 'Rename',
+            icon: <Pencil size={18} />,
+            onSelect: () => setContextMenu({ x: origin.x, y: origin.y, initialMode: 'rename' }),
+          },
+          {
+            id: 'delete',
+            label: 'Delete',
+            icon: <Trash2 size={18} />,
+            danger: true,
+            onSelect: handleFolderDelete,
+          },
+        ]
+      : []),
+  ];
+
+  const getNotePieItems = (note: Note): PieMenuItem[] => [
+    {
+      id: 'open',
+      label: 'Open',
+      icon: <FileText size={18} />,
+      onSelect: () => handleNoteClick(note),
+    },
+    {
+      id: 'rename',
+      label: 'Rename',
+      icon: <Pencil size={18} />,
+      onSelect: () => handleNoteStartRename(note),
+    },
+    {
+      id: 'delete',
+      label: 'Delete',
+      icon: <Trash2 size={18} />,
+      danger: true,
+      onSelect: () => handleNoteDelete(note),
+    },
+  ];
+
   return (
     <div className="folder-node">
-      <div
-        className={`folder-row ${isSelected ? 'selected' : ''}`}
-        style={{ paddingLeft: `${depth * 16 + 8}px` }}
-        onClick={handleSelect}
-        onContextMenu={handleContextMenu}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-      >
-        <button
-          className="folder-toggle"
-          onClick={handleToggle}
-          tabIndex={-1}
-        >
-          {hasChildren ? (
-            isExpanded ? (
-              <ChevronDown size={14} />
-            ) : (
-              <ChevronRight size={14} />
-            )
-          ) : (
-            <span style={{ width: 14 }} />
-          )}
-        </button>
-        {isExpanded ? <FolderOpen size={16} /> : <Folder size={16} />}
-        <span className="folder-name">{folder?.name ?? 'Notes'}</span>
-      </div>
+      <MobilePieMenuTrigger enabled={useMobilePieMenu} items={getFolderPieItems}>
+        {(triggerProps) => (
+          <div
+            className={`folder-row ${isSelected ? 'selected' : ''}`}
+            style={{ paddingLeft: `${depth * 16 + 8}px` }}
+            onClick={handleSelect}
+            onContextMenu={useMobilePieMenu ? undefined : handleContextMenu}
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            {...triggerProps}
+          >
+            <button
+              className="folder-toggle"
+              onClick={handleToggle}
+              tabIndex={-1}
+            >
+              {hasChildren ? (
+                isExpanded ? (
+                  <ChevronDown size={14} />
+                ) : (
+                  <ChevronRight size={14} />
+                )
+              ) : (
+                <span style={{ width: 14 }} />
+              )}
+            </button>
+            {isExpanded ? <FolderOpen size={16} /> : <Folder size={16} />}
+            <span className="folder-name">{folder?.name ?? 'Notes'}</span>
+          </div>
+        )}
+      </MobilePieMenuTrigger>
 
       {isExpanded && (
         <div className="folder-children">
@@ -226,33 +365,41 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
             />
           ))}
           {folderNotes.map((note) => (
-            <div
+            <MobilePieMenuTrigger
               key={note.frontmatter.id}
-              className={`folder-note ${
-                activeNoteId === note.frontmatter.id ? 'active' : ''
-              }`}
-              style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }}
-              onClick={() => handleNoteClick(note)}
-              onContextMenu={(e) => handleNoteContextMenu(e, note)}
-              draggable={renamingNoteId !== note.frontmatter.id}
-              onDragStart={(e) => handleNoteDragStart(e, note)}
+              enabled={useMobilePieMenu}
+              items={getNotePieItems(note)}
             >
-              <FileText size={14} />
-              {renamingNoteId === note.frontmatter.id ? (
-                <input
-                  ref={renameInputRef}
-                  type="text"
-                  className="folder-note-rename-input"
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
-                  onKeyDown={(e) => handleRenameKeyDown(e, note)}
-                  onBlur={() => handleRenameSubmit(note)}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              ) : (
-                <span className="folder-note-title">{note.frontmatter.title}</span>
+              {(triggerProps) => (
+                <div
+                  className={`folder-note ${
+                    activeNoteId === note.frontmatter.id ? 'active' : ''
+                  }`}
+                  style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }}
+                  onClick={() => handleNoteClick(note)}
+                  onContextMenu={useMobilePieMenu ? undefined : (e) => handleNoteContextMenu(e, note)}
+                  draggable={!useMobilePieMenu && renamingNoteId !== note.frontmatter.id}
+                  onDragStart={(e) => handleNoteDragStart(e, note)}
+                  {...triggerProps}
+                >
+                  <FileText size={14} />
+                  {renamingNoteId === note.frontmatter.id ? (
+                    <input
+                      ref={renameInputRef}
+                      type="text"
+                      className="folder-note-rename-input"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => handleRenameKeyDown(e, note)}
+                      onBlur={() => handleRenameSubmit(note)}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span className="folder-note-title">{note.frontmatter.title}</span>
+                  )}
+                </div>
               )}
-            </div>
+            </MobilePieMenuTrigger>
           ))}
         </div>
       )}
@@ -263,6 +410,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
+          initialMode={contextMenu.initialMode}
         />
       )}
 
@@ -271,8 +419,8 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
           x={noteContextMenu.x}
           y={noteContextMenu.y}
           onClose={() => setNoteContextMenu(null)}
-          onDelete={handleNoteDelete}
-          onRename={handleNoteStartRename}
+          onDelete={handleNoteContextDelete}
+          onRename={handleNoteContextStartRename}
         />
       )}
     </div>

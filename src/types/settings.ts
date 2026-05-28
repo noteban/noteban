@@ -19,6 +19,7 @@ export const DEFAULT_AI_SETTINGS: AITagSettings = {
 };
 
 export type SyncProvider = 'local' | 'nextcloud';
+export type MobileInteractionMode = 'standard' | 'pie';
 
 export type SyncSettings = {
   provider: SyncProvider;
@@ -76,6 +77,7 @@ export type AppSettingsRoot = {
   disableUpdateChecks: boolean;
   enableDebugLogging: boolean;
   useNativeDecorations: boolean;
+  mobileInteractionMode: MobileInteractionMode;
 };
 
 // Backward compatibility alias
@@ -100,6 +102,7 @@ export const DEFAULT_APP_SETTINGS = {
   disableUpdateChecks: false,
   enableDebugLogging: false,
   useNativeDecorations: false,
+  mobileInteractionMode: 'standard' as MobileInteractionMode,
 };
 
-export const SETTINGS_SCHEMA_VERSION = 6;
+export const SETTINGS_SCHEMA_VERSION = 7;

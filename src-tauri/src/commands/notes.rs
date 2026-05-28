@@ -2,9 +2,9 @@ use crate::cache::CacheDb;
 use crate::lock_or_err;
 use crate::utils::{compute_content_hash, extract_inline_tags};
 use crate::AppState;
+use atomicwrites::{AtomicFile, OverwriteBehavior};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use atomicwrites::{AtomicFile, OverwriteBehavior};
 use std::collections::HashSet;
 use std::fs;
 use std::io::Write;
@@ -223,8 +223,8 @@ fn sanitize_tags(tags: Vec<String>) -> Vec<String> {
 }
 
 fn parse_note(file_path: &PathBuf) -> Result<Note, String> {
-    let content = fs::read_to_string(file_path)
-        .map_err(|e| format!("Failed to read file: {}", e))?;
+    let content =
+        fs::read_to_string(file_path).map_err(|e| format!("Failed to read file: {}", e))?;
 
     // Split frontmatter from content
     let parts: Vec<&str> = content.splitn(3, "---").collect();
@@ -247,8 +247,7 @@ fn parse_note(file_path: &PathBuf) -> Result<Note, String> {
 }
 
 fn serialize_note(frontmatter: &NoteFrontmatter, content: &str) -> String {
-    let frontmatter_str = serde_yaml::to_string(frontmatter)
-        .unwrap_or_default();
+    let frontmatter_str = serde_yaml::to_string(frontmatter).unwrap_or_default();
 
     format!("---\n{}---\n\n{}", frontmatter_str, content)
 }
@@ -436,9 +435,10 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
     let old_file_path = input.file_path.clone();
 
     // Check if title is changing and rename file if needed
-    let title_changed = input.title.as_ref().map_or(false, |new_title| {
-        new_title != &note.frontmatter.title
-    });
+    let title_changed = input
+        .title
+        .as_ref()
+        .map_or(false, |new_title| new_title != &note.frontmatter.title);
 
     // Update frontmatter fields
     if let Some(title) = input.title {
@@ -566,7 +566,11 @@ pub fn update_note(input: UpdateNoteInput, state: State<AppState>) -> Result<Not
 }
 
 #[tauri::command]
-pub fn delete_note(notes_dir: String, file_path: String, state: State<AppState>) -> Result<(), String> {
+pub fn delete_note(
+    notes_dir: String,
+    file_path: String,
+    state: State<AppState>,
+) -> Result<(), String> {
     let base_path = PathBuf::from(&notes_dir);
     let path = PathBuf::from(&file_path);
     validate_existing_path_within_base(&path, &base_path)?;
@@ -588,8 +592,7 @@ pub fn delete_note(notes_dir: String, file_path: String, state: State<AppState>)
     record_write(&file_path, &state);
 
     // Delete the note file
-    fs::remove_file(&path)
-        .map_err(|e| format!("Failed to delete note: {}", e))?;
+    fs::remove_file(&path).map_err(|e| format!("Failed to delete note: {}", e))?;
 
     // Delete the attachments folder if it exists
     if let Some(attach_path) = attachments {
@@ -647,7 +650,11 @@ pub fn create_folder(
 }
 
 #[tauri::command]
-pub fn rename_folder(notes_dir: String, old_path: String, new_name: String) -> Result<Folder, String> {
+pub fn rename_folder(
+    notes_dir: String,
+    old_path: String,
+    new_name: String,
+) -> Result<Folder, String> {
     validate_folder_name(&new_name)?;
     let base = PathBuf::from(&notes_dir);
     let old = PathBuf::from(&old_path);
@@ -706,7 +713,12 @@ pub fn delete_folder(notes_dir: String, folder_path: String) -> Result<(), Strin
 }
 
 #[tauri::command]
-pub fn move_note(notes_dir: String, file_path: String, target_folder: String, state: State<AppState>) -> Result<Note, String> {
+pub fn move_note(
+    notes_dir: String,
+    file_path: String,
+    target_folder: String,
+    state: State<AppState>,
+) -> Result<Note, String> {
     let base = PathBuf::from(&notes_dir);
     let source = PathBuf::from(&file_path);
     validate_existing_path_within_base(&source, &base)?;
@@ -924,7 +936,12 @@ pub fn list_notes_cached(
     }
 
     // Sort by modified date (newest first)
-    notes.sort_by(|a, b| b.note.frontmatter.modified.cmp(&a.note.frontmatter.modified));
+    notes.sort_by(|a, b| {
+        b.note
+            .frontmatter
+            .modified
+            .cmp(&a.note.frontmatter.modified)
+    });
     folders.sort_by(|a, b| a.relative_path.cmp(&b.relative_path));
 
     Ok(NotesWithTagsAndFolders { notes, folders })
@@ -969,7 +986,10 @@ pub fn process_file_changes(
 
                 // Skip files outside notes directory (with symlink protection)
                 if validate_path_within_base(&path, &base_path).is_err() {
-                    log::warn!("Skipping file outside notes directory: {}", change.file_path);
+                    log::warn!(
+                        "Skipping file outside notes directory: {}",
+                        change.file_path
+                    );
                     continue;
                 }
 
@@ -990,18 +1010,15 @@ pub fn process_file_changes(
                         let inline_tags = extract_inline_tags(&note.content);
 
                         if let Some(c) = cache {
-                            let content = fs::read_to_string(&path)
-                                .unwrap_or_else(|_| note.content.clone());
+                            let content =
+                                fs::read_to_string(&path).unwrap_or_else(|_| note.content.clone());
                             let hash = compute_content_hash(&content);
                             if let Err(e) = c.upsert_note(&note, &hash, mtime, &inline_tags) {
                                 log::warn!("Cache update failed for file change: {}", e);
                             }
                         }
 
-                        updated_notes.push(NoteWithTags {
-                            note,
-                            inline_tags,
-                        });
+                        updated_notes.push(NoteWithTags { note, inline_tags });
                     }
                     Err(e) => log::warn!("Failed to parse {}: {}", change.file_path, e),
                 }

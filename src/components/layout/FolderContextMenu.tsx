@@ -11,6 +11,7 @@ interface FolderContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
+  initialMode?: 'menu' | 'create' | 'rename';
 }
 
 export function FolderContextMenu({
@@ -18,13 +19,14 @@ export function FolderContextMenu({
   x,
   y,
   onClose,
+  initialMode = 'menu',
 }: FolderContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const { createFolder, renameFolder, deleteFolder } = useFolderStore();
   const { loadNotes } = useNotesStore();
   const { settings } = useSettingsStore();
-  const [mode, setMode] = useState<'menu' | 'create' | 'rename'>('menu');
-  const [inputValue, setInputValue] = useState('');
+  const [mode, setMode] = useState<'menu' | 'create' | 'rename'>(initialMode);
+  const [inputValue, setInputValue] = useState(initialMode === 'rename' ? folder?.name ?? '' : '');
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {

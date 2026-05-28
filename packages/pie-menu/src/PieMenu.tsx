@@ -139,40 +139,40 @@ function PieMenuContent(props: PieMenuProps) {
     [cx, cy, size],
   );
 
-  const onSurfacePointerDown = useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
-      dragStartRef.current = { x: e.clientX, y: e.clientY };
-      const { dx, dy } = pointerToLocal(e.clientX, e.clientY);
+  const beginDrag = useCallback(
+    (clientX: number, clientY: number) => {
+      dragStartRef.current = { x: clientX, y: clientY };
+      const { dx, dy } = pointerToLocal(clientX, clientY);
       const idx = hitTestSector(dx, dy, innerR, outerR, slotCount);
       setActiveSlot(idx);
       setHoveredSlot(idx);
-      (e.target as Element).setPointerCapture?.(e.pointerId);
     },
     [innerR, outerR, slotCount, pointerToLocal],
   );
 
-  const onSurfacePointerMove = useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
-      const { dx, dy } = pointerToLocal(e.clientX, e.clientY);
+  const trackDrag = useCallback(
+    (clientX: number, clientY: number) => {
+      const { dx, dy } = pointerToLocal(clientX, clientY);
       const idx = hitTestSector(dx, dy, innerR, outerR, slotCount);
       setHoveredSlot(idx);
-      if (activeSlot !== null && idx !== null) {
-        setActiveSlot(idx);
-      }
+      // Latch the press highlight onto whichever sector the finger is over.
+      // Leaving the ring (idx === null) keeps the last sector active so a
+      // brief excursion into the dead zone doesn't drop the highlight.
+      setActiveSlot((prev) => (idx !== null ? idx : prev));
     },
-    [activeSlot, innerR, outerR, slotCount, pointerToLocal],
+    [innerR, outerR, slotCount, pointerToLocal],
   );
 
-  const onSurfacePointerUp = useCallback(
-    (e: React.PointerEvent<SVGSVGElement>) => {
+  const finishDrag = useCallback(
+    (clientX: number, clientY: number) => {
       const start = dragStartRef.current;
       dragStartRef.current = null;
-      const { dx, dy } = pointerToLocal(e.clientX, e.clientY);
+      const { dx, dy } = pointerToLocal(clientX, clientY);
       const idx = hitTestSector(dx, dy, innerR, outerR, slotCount);
 
       if (paginated.totalPages > 1 && idx === null && start) {
-        const horizDelta = e.clientX - start.x;
-        const vertDelta = e.clientY - start.y;
+        const horizDelta = clientX - start.x;
+        const vertDelta = clientY - start.y;
         if (
           Math.abs(horizDelta) > SWIPE_THRESHOLD_PX &&
           Math.abs(horizDelta) > Math.abs(vertDelta) * 1.5
@@ -202,11 +202,77 @@ function PieMenuContent(props: PieMenuProps) {
     ],
   );
 
-  const onSurfacePointerCancel = useCallback(() => {
+  const cancelDrag = useCallback(() => {
     dragStartRef.current = null;
     setActiveSlot(null);
     setHoveredSlot(null);
   }, []);
+
+  const onSurfacePointerDown = useCallback(
+    (e: React.PointerEvent<SVGSVGElement>) => {
+      beginDrag(e.clientX, e.clientY);
+      (e.target as Element).setPointerCapture?.(e.pointerId);
+    },
+    [beginDrag],
+  );
+
+  const onSurfacePointerMove = useCallback(
+    (e: React.PointerEvent<SVGSVGElement>) => {
+      trackDrag(e.clientX, e.clientY);
+    },
+    [trackDrag],
+  );
+
+  const onSurfacePointerUp = useCallback(
+    (e: React.PointerEvent<SVGSVGElement>) => {
+      finishDrag(e.clientX, e.clientY);
+    },
+    [finishDrag],
+  );
+
+  const onSurfacePointerCancel = useCallback(() => {
+    cancelDrag();
+  }, [cancelDrag]);
+
+  // Continuous-gesture handoff: when the menu was opened by an in-flight pointer
+  // (e.g. long-press), keep tracking that pointer at the window level so the user
+  // can drag straight from the open gesture into a sector and release to select.
+  // The pointer's original `pointerdown` was captured outside our SVG, so React
+  // events on the surface never fire for it.
+  const activePointerId = origin.activePointerId;
+  const originX = origin.x;
+  const originY = origin.y;
+  useEffect(() => {
+    if (activePointerId == null) return;
+    // Seed the page-swipe origin so finishDrag can measure horizontal travel
+    // for the dead-zone pagination gesture. The initial sector highlight is
+    // intentionally not seeded here (lint forbids setState in effect bodies);
+    // the first pointermove on the live gesture will paint it within a frame.
+    dragStartRef.current = { x: originX, y: originY };
+
+    const onMove = (e: PointerEvent) => {
+      if (e.pointerId !== activePointerId) return;
+      trackDrag(e.clientX, e.clientY);
+    };
+    const onUp = (e: PointerEvent) => {
+      if (e.pointerId !== activePointerId) return;
+      finishDrag(e.clientX, e.clientY);
+    };
+    const onCancel = (e: PointerEvent) => {
+      if (e.pointerId !== activePointerId) return;
+      cancelDrag();
+      onClose();
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onCancel);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+    };
+  }, [activePointerId, originX, originY, trackDrag, finishDrag, cancelDrag, onClose]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

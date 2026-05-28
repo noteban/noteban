@@ -14,7 +14,8 @@
     "tauri": "tauri",
     "ios:init": "tauri ios init",
     "ios:dev": "tauri ios dev",
-    "ios:build:testflight": "tauri ios build --export-method release-testing"
+    "ios:build:testflight": "tauri ios build --export-method app-store-connect",
+    "ios:build:adhoc": "tauri ios build --export-method release-testing"
   },
   "dependencies": {
     "@codemirror/lang-markdown": "^6.2.0",
@@ -23,6 +24,7 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.0",
     "@lezer/highlight": "^1.2.3",
+    "@noteban/pie-menu": "file:packages/pie-menu",
     "@tauri-apps/api": "^2.11.0",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
     "@tauri-apps/plugin-dialog": "^2.7.1",

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { AppSettingsRoot, Profile, ProfileSettings, KanbanColumnSettings, SyncSettings } from '../types/settings';
+import type { AppSettingsRoot, Profile, ProfileSettings, KanbanColumnSettings, MobileInteractionMode, SyncSettings } from '../types/settings';
 import { DEFAULT_PROFILE_SETTINGS, DEFAULT_SYNC_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
 import { DEFAULT_COLUMNS } from '../types/kanban';
 import { migrateSettings, createInitialRoot, generateProfileId } from '../utils/settingsMigration';
@@ -35,6 +35,7 @@ interface SettingsState {
   setDisableUpdateChecks: (disable: boolean) => void;
   setEnableDebugLogging: (enable: boolean) => void;
   setUseNativeDecorations: (use: boolean) => void;
+  setMobileInteractionMode: (mode: MobileInteractionMode) => void;
 
   // AI settings (profile-specific)
   setAIEnabled: (enabled: boolean) => void;
@@ -231,6 +232,16 @@ export const useSettingsStore = create<SettingsState>()(
             root: {
               ...state.root,
               useNativeDecorations: use,
+            },
+          }));
+        },
+
+        setMobileInteractionMode: (mode: MobileInteractionMode) => {
+          debugLog.log('Setting mobileInteractionMode:', mode);
+          set((state) => ({
+            root: {
+              ...state.root,
+              mobileInteractionMode: mode,
             },
           }));
         },

@@ -94,3 +94,22 @@
   border-radius: var(--radius-sm);
   outline: none;
 }
+
+.noteban-mobile-pie-menu {
+  --pie-bg: rgba(24, 24, 37, 0.84);
+  --pie-sector-stroke: rgba(205, 214, 244, 0.12);
+  --pie-sector-hover-fill: rgba(137, 180, 250, 0.18);
+  --pie-sector-active-fill: rgba(137, 180, 250, 0.28);
+  --pie-sector-danger-fill: rgba(243, 139, 168, 0.24);
+  --pie-text: var(--text-primary);
+  --pie-text-muted: var(--text-muted);
+  --pie-text-danger: var(--ctp-red);
+  --pie-nav-fill: rgba(205, 214, 244, 0.08);
+  --pie-nav-icon: var(--text-muted);
+  --pie-shadow: 0 16px 40px rgba(0, 0, 0, 0.38);
+}
+
+.noteban-mobile-pie-menu .pie-menu-label {
+  font-size: 10.5px;
+  font-weight: 650;
+}

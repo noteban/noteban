@@ -14,6 +14,8 @@ import {
   LogIn,
   Unplug,
   Info,
+  List,
+  CircleDot,
 } from 'lucide-react';
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from '@tauri-apps/api/core';
@@ -38,6 +40,7 @@ export function SettingsModal() {
     setDisableUpdateChecks,
     setEnableDebugLogging,
     setUseNativeDecorations,
+    setMobileInteractionMode,
     setAIEnabled,
     setAIServerUrl,
     setAISelectedModel,
@@ -501,6 +504,34 @@ export function SettingsModal() {
 
           <div className="settings-section">
             <h3>Advanced</h3>
+            {isMobile && (
+              <div className="settings-field">
+                <label>Mobile Interaction</label>
+                <div className="settings-segmented-control">
+                  <button
+                    type="button"
+                    className={root.mobileInteractionMode === 'standard' ? 'active' : ''}
+                    onClick={() => setMobileInteractionMode('standard')}
+                    aria-pressed={root.mobileInteractionMode === 'standard'}
+                  >
+                    <List size={16} />
+                    <span>Standard</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={root.mobileInteractionMode === 'pie' ? 'active' : ''}
+                    onClick={() => setMobileInteractionMode('pie')}
+                    aria-pressed={root.mobileInteractionMode === 'pie'}
+                  >
+                    <CircleDot size={16} />
+                    <span>Pie Menu</span>
+                  </button>
+                </div>
+                <p className="settings-field-hint">
+                  Choose how long-press actions appear in the mobile notes list.
+                </p>
+              </div>
+            )}
             {showUpdateSettings && (
               <div className="settings-field">
                 <div className="settings-toggle-row">

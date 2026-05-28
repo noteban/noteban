@@ -24,8 +24,10 @@ impl CacheDb {
             .map_err(|e| format!("Failed to open cache database: {}", e))?;
 
         // Enable WAL mode for better concurrent read performance
-        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON;")
-            .map_err(|e| format!("Failed to set pragmas: {}", e))?;
+        conn.execute_batch(
+            "PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL; PRAGMA foreign_keys=ON;",
+        )
+        .map_err(|e| format!("Failed to set pragmas: {}", e))?;
 
         let db = Self {
             conn: Mutex::new(conn),
@@ -37,8 +39,8 @@ impl CacheDb {
     }
 
     fn get_cache_path(profile_id: &str) -> Result<PathBuf, String> {
-        let proj_dirs = ProjectDirs::from("", "", "noteban")
-            .ok_or("Could not determine cache directory")?;
+        let proj_dirs =
+            ProjectDirs::from("", "", "noteban").ok_or("Could not determine cache directory")?;
         Ok(proj_dirs.cache_dir().join(profile_id).join("cache.db"))
     }
 

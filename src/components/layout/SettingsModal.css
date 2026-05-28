@@ -563,6 +563,41 @@
   cursor: not-allowed;
 }
 
+.settings-segmented-control {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+}
+
+.settings-segmented-control button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  min-height: 40px;
+  padding: 0 var(--spacing-sm);
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.settings-segmented-control button.active {
+  background-color: var(--ctp-surface1);
+  color: var(--text-primary);
+}
+
+.settings-segmented-control button:hover {
+  color: var(--text-primary);
+}
+
 .settings-ios-about {
   margin-top: var(--spacing-xl);
   padding-top: var(--spacing-md);

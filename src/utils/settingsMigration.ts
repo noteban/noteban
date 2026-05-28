@@ -64,6 +64,7 @@ export function migrateSettings(
       disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
       enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
       useNativeDecorations: DEFAULT_APP_SETTINGS.useNativeDecorations,
+      mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
     };
 
     return {
@@ -81,6 +82,7 @@ export function migrateSettings(
         version: 3,
         disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
         enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
+        mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
       },
       settings: state.settings,
     }, 3);
@@ -94,6 +96,7 @@ export function migrateSettings(
         ...state.root,
         version: 4,
         useNativeDecorations: DEFAULT_APP_SETTINGS.useNativeDecorations,
+        mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
       },
       settings: state.settings,
     }, 4);
@@ -117,6 +120,7 @@ export function migrateSettings(
       root: {
         ...state.root,
         version: SETTINGS_SCHEMA_VERSION,
+        mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
         profiles: updatedProfiles,
       },
       settings: {
@@ -143,6 +147,7 @@ export function migrateSettings(
       root: {
         ...state.root,
         version: SETTINGS_SCHEMA_VERSION,
+        mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
         profiles: updatedProfiles,
       },
       settings: {
@@ -152,9 +157,29 @@ export function migrateSettings(
     };
   }
 
-  // Handle version 6+ (current format) - no migration needed
+  // Handle version 6 -> 7 migration (add mobile interaction setting)
+  if (version === 6) {
+    const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
+
+    return {
+      root: {
+        ...state.root,
+        version: SETTINGS_SCHEMA_VERSION,
+        mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
+      },
+      settings: state.settings,
+    };
+  }
+
+  // Handle version 7+ (current format) - no migration needed
   const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
-  return state;
+  return {
+    ...state,
+    root: {
+      ...state.root,
+      mobileInteractionMode: state.root.mobileInteractionMode ?? DEFAULT_APP_SETTINGS.mobileInteractionMode,
+    },
+  };
 }
 
 export function createDefaultProfile(name: string = 'Default'): Profile {
@@ -178,6 +203,7 @@ export function createInitialRoot(): AppSettingsRoot {
     disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
     enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
     useNativeDecorations: DEFAULT_APP_SETTINGS.useNativeDecorations,
+    mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
   };
 }
 

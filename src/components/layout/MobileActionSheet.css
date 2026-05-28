@@ -1,0 +1,115 @@
+.mobile-action-sheet-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  pointer-events: none;
+}
+
+.mobile-action-sheet-root.open {
+  pointer-events: auto;
+}
+
+@keyframes mobile-action-sheet-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes mobile-action-sheet-slide-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.mobile-action-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  animation: mobile-action-sheet-fade-in 180ms ease-out;
+}
+
+.mobile-action-sheet {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--ctp-surface1);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+  padding: var(--spacing-sm) var(--spacing-md)
+    calc(var(--spacing-md) + var(--safe-area-inset-bottom));
+  animation: mobile-action-sheet-slide-up 200ms cubic-bezier(0.2, 0.7, 0.2, 1);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.mobile-action-sheet-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background-color: var(--ctp-surface2, var(--ctp-surface1));
+  margin: 4px auto var(--spacing-sm);
+}
+
+.mobile-action-sheet-title {
+  font-size: 0.85rem;
+  color: var(--text-secondary, var(--ctp-subtext0));
+  text-align: center;
+  padding: 0 var(--spacing-sm) var(--spacing-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mobile-action-sheet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mobile-action-sheet-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  width: 100%;
+  min-height: 56px;
+  padding: 0 var(--spacing-md);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 1rem;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--transition-fast, 120ms ease);
+}
+
+.mobile-action-sheet-item:active:not(:disabled) {
+  background-color: var(--ctp-surface1);
+}
+
+.mobile-action-sheet-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mobile-action-sheet-item[data-danger='true'] {
+  color: var(--ctp-red);
+}
+
+.mobile-action-sheet-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.mobile-action-sheet-label {
+  flex: 1;
+  min-width: 0;
+}

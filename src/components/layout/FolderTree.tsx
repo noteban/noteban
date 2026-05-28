@@ -15,6 +15,8 @@ import type { PieMenuItem, PieMenuOrigin } from '@noteban/pie-menu';
 import { useFolderStore, useNotesStore, useSettingsStore, useUIStore } from '../../stores';
 import { FolderContextMenu } from './FolderContextMenu';
 import { ContextMenu } from './ContextMenu';
+import { MobileActionSheet } from './MobileActionSheet';
+import { useLongPress } from '../../hooks/useLongPress';
 import { useTags } from '../../hooks/useTags';
 import { matchesTagFilter } from '../../utils/tagFilterMatcher';
 import { hasTagFilter } from '../../utils/tagFilterParser';
@@ -30,6 +32,21 @@ interface MobilePieMenuTriggerProps {
   enabled: boolean;
   items: PieMenuItem[] | ((origin: PieMenuOrigin) => PieMenuItem[]);
   children: (triggerProps: TriggerProps) => ReactNode;
+}
+
+interface MobileSheetTriggerProps {
+  enabled: boolean;
+  onLongPress: (clientX: number, clientY: number) => void;
+  children: (triggerProps: TriggerProps) => ReactNode;
+}
+
+function MobileSheetTrigger({ enabled, onLongPress, children }: MobileSheetTriggerProps) {
+  const { triggerProps } = useLongPress({
+    enabled,
+    onLongPress,
+    movementTolerance: 10,
+  });
+  return <>{children(triggerProps)}</>;
 }
 
 function MobilePieMenuTrigger({ enabled, items, children }: MobilePieMenuTriggerProps) {
@@ -93,8 +110,10 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
   const [noteContextMenu, setNoteContextMenu] = useState<{ note: Note; x: number; y: number } | null>(null);
   const [renamingNoteId, setRenamingNoteId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [sheet, setSheet] = useState<{ title: string; items: PieMenuItem[] } | null>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const useMobilePieMenu = isMobile && root.mobileInteractionMode === 'pie';
+  const useMobileSheet = isMobile && root.mobileInteractionMode === 'standard';
 
   useEffect(() => {
     if (renamingNoteId && renameInputRef.current) {
@@ -323,15 +342,26 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
   return (
     <div className="folder-node">
       <MobilePieMenuTrigger enabled={useMobilePieMenu} items={getFolderPieItems}>
-        {(triggerProps) => (
+        {(pieTriggerProps) => (
+          <MobileSheetTrigger
+            enabled={useMobileSheet}
+            onLongPress={(x, y) =>
+              setSheet({
+                title: folder?.name ?? 'Notes',
+                items: getFolderPieItems({ x, y }),
+              })
+            }
+          >
+            {(sheetTriggerProps) => (
           <div
             className={`folder-row ${isSelected ? 'selected' : ''}`}
             style={{ paddingLeft: `${depth * 16 + 8}px` }}
             onClick={handleSelect}
-            onContextMenu={useMobilePieMenu ? undefined : handleContextMenu}
+            onContextMenu={isMobile ? undefined : handleContextMenu}
             onDrop={handleDrop}
             onDragOver={handleDragOver}
-            {...triggerProps}
+            {...pieTriggerProps}
+            {...sheetTriggerProps}
           >
             <button
               className="folder-toggle"
@@ -351,6 +381,8 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
             {isExpanded ? <FolderOpen size={16} /> : <Folder size={16} />}
             <span className="folder-name">{folder?.name ?? 'Notes'}</span>
           </div>
+            )}
+          </MobileSheetTrigger>
         )}
       </MobilePieMenuTrigger>
 
@@ -370,17 +402,28 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
               enabled={useMobilePieMenu}
               items={getNotePieItems(note)}
             >
-              {(triggerProps) => (
+              {(pieTriggerProps) => (
+                <MobileSheetTrigger
+                  enabled={useMobileSheet}
+                  onLongPress={() =>
+                    setSheet({
+                      title: note.frontmatter.title,
+                      items: getNotePieItems(note),
+                    })
+                  }
+                >
+                  {(sheetTriggerProps) => (
                 <div
                   className={`folder-note ${
                     activeNoteId === note.frontmatter.id ? 'active' : ''
                   }`}
                   style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }}
                   onClick={() => handleNoteClick(note)}
-                  onContextMenu={useMobilePieMenu ? undefined : (e) => handleNoteContextMenu(e, note)}
-                  draggable={!useMobilePieMenu && renamingNoteId !== note.frontmatter.id}
+                  onContextMenu={isMobile ? undefined : (e) => handleNoteContextMenu(e, note)}
+                  draggable={!isMobile && renamingNoteId !== note.frontmatter.id}
                   onDragStart={(e) => handleNoteDragStart(e, note)}
-                  {...triggerProps}
+                  {...pieTriggerProps}
+                  {...sheetTriggerProps}
                 >
                   <FileText size={14} />
                   {renamingNoteId === note.frontmatter.id ? (
@@ -398,11 +441,20 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
                     <span className="folder-note-title">{note.frontmatter.title}</span>
                   )}
                 </div>
+                  )}
+                </MobileSheetTrigger>
               )}
             </MobilePieMenuTrigger>
           ))}
         </div>
       )}
+
+      <MobileActionSheet
+        open={sheet !== null}
+        title={sheet?.title}
+        items={sheet?.items ?? []}
+        onClose={() => setSheet(null)}
+      />
 
       {contextMenu && (
         <FolderContextMenu

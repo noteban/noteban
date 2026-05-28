@@ -10,8 +10,10 @@ use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex as StdMutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::State;
+use tokio::sync::Mutex as AsyncMutex;
 use url::Url;
 use uuid::Uuid;
 use walkdir::WalkDir;
@@ -308,11 +310,26 @@ pub fn get_sync_status(profile_id: String) -> Result<SyncStatus, String> {
     read_sync_status(&cache)
 }
 
+/// Returns a per-profile async mutex used to serialize `sync_now` calls.
+/// Calls for *different* profiles continue to run in parallel; calls for the
+/// *same* profile wait so concurrent invocations don't race on local file
+/// writes and `sync_files` upserts.
+fn sync_lock_for(profile_id: &str) -> Arc<AsyncMutex<()>> {
+    static LOCKS: OnceLock<StdMutex<HashMap<String, Arc<AsyncMutex<()>>>>> = OnceLock::new();
+    let locks = LOCKS.get_or_init(|| StdMutex::new(HashMap::new()));
+    let mut map = locks.lock().expect("sync locks poisoned");
+    map.entry(profile_id.to_string())
+        .or_insert_with(|| Arc::new(AsyncMutex::new(())))
+        .clone()
+}
+
 #[tauri::command]
 pub async fn sync_now(
     profile_id: String,
     remote_folder: Option<String>,
 ) -> Result<SyncSummary, String> {
+    let lock = sync_lock_for(&profile_id);
+    let _guard = lock.lock().await;
     let cache = CacheDb::new(&profile_id)?;
     let started_at = Utc::now();
     write_sync_status(
@@ -482,8 +499,8 @@ async fn run_sync(
                 cache.remove_sync_record(&relative_path)?;
                 summary.deleted_remote += 1;
             }
-            SyncDecision::Conflict => {
-                if let (Some(local), Some(remote)) = (local, remote) {
+            SyncDecision::Conflict => match (local, remote) {
+                (Some(local), Some(remote)) => {
                     let bytes =
                         download_file(&client, &credentials, &remote_folder, &relative_path)
                             .await?;
@@ -535,46 +552,52 @@ async fn run_sync(
                         None,
                         &conflict_local.hash,
                     )?;
-                } else if local.is_some() {
-                    if let Some(local) = local {
-                        let etag = upload_file(
-                            &client,
-                            &credentials,
-                            &remote_folder,
-                            &relative_path,
-                            &local.path,
-                        )
-                        .await?;
-                        summary.uploaded += 1;
-                        summary.conflicts.push(relative_path.clone());
-                        upsert_record_with_etag(
-                            &cache,
-                            &relative_path,
-                            local,
-                            etag,
-                            None,
-                            None,
-                            &local.hash,
-                        )?;
-                    }
-                } else if let Some(remote) = remote {
+                }
+                (Some(local), None) => {
+                    // Local exists, remote was deleted. Re-upload so the
+                    // user's content survives; surface the disagreement
+                    // via summary.conflicts.
+                    let etag = upload_file(
+                        &client,
+                        &credentials,
+                        &remote_folder,
+                        &relative_path,
+                        &local.path,
+                    )
+                    .await?;
+                    summary.uploaded += 1;
+                    summary.conflicts.push(relative_path.clone());
+                    upsert_record_with_etag(
+                        &cache,
+                        &relative_path,
+                        local,
+                        etag,
+                        None,
+                        None,
+                        &local.hash,
+                    )?;
+                }
+                (None, Some(remote)) => {
+                    // Local was deleted, remote was edited. Restore the
+                    // remote edits at the original path so the user's
+                    // remote changes aren't buried under a timestamped
+                    // conflict filename. The disagreement is still
+                    // surfaced via summary.conflicts; the user can
+                    // re-delete locally if they really want it gone.
                     let bytes =
                         download_file(&client, &credentials, &remote_folder, &relative_path)
                             .await?;
-                    let conflict_relative =
-                        write_conflict_file(&local_root, &relative_path, &bytes)?;
-                    let conflict_local = local_file_from_path(&local_root, &conflict_relative)?;
+                    write_local_file(&local_root, &relative_path, &bytes)?;
+                    let restored = local_file_from_path(&local_root, &relative_path)?;
                     summary.downloaded += 1;
                     summary.conflicts.push(relative_path.clone());
-                    upsert_record(
-                        &cache,
-                        &conflict_relative,
-                        &conflict_local,
-                        remote,
-                        &conflict_local.hash,
-                    )?;
+                    upsert_record(&cache, &relative_path, &restored, remote, &restored.hash)?;
                 }
-            }
+                (None, None) => {
+                    // Shouldn't happen — Conflict implies one or both
+                    // sides exist. Defensive no-op.
+                }
+            },
         }
     }
 

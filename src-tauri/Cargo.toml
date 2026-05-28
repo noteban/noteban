@@ -42,6 +42,7 @@ roxmltree = "0.20"
 url = "2.5"
 urlencoding = "2.1"
 rustls = { version = "0.23.38", default-features = false, features = ["ring"] }
+tokio = { version = "1", features = ["sync"] }
 
 [target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
 tauri-plugin-updater = "2"

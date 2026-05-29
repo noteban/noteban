@@ -6,8 +6,10 @@ It features tags, screenshots and checkboxes in the notes, but also shows the no
 
 ![Main View](.github/assets/Main%20view.png)
 ![Kanban View](.github/assets/Kanban%20view.png)
-![Screenshot in Notes](.github/assets/Screenshot%20note.png)
+![Screenshot in Notes](.github/assets/desktop-note-view.png)
 ![Filter](.github/assets/Filter.png)
+![Mobile Pie Menu](.github/assets/mobile-pie-menu.png)
+![Mobile Keyboard Accessory Bar](.github/assets/mobile-editor-keyboard-accessory.png)
 
 ## AI Tag Suggestions
 

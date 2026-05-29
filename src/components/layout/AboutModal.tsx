@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Github, ExternalLink } from 'lucide-react';
+import { X, Code, ExternalLink } from 'lucide-react';
 import { getVersion } from '@tauri-apps/api/app';
 import { useUIStore } from '../../stores';
 import { useUpdater } from '../../hooks';
@@ -95,7 +95,7 @@ export function AboutModal() {
 
           <div className="about-links">
             <button className="about-link-btn" onClick={handleOpenGitHub}>
-              <Github size={16} />
+              <Code size={16} />
               <span>View on GitHub</span>
               <ExternalLink size={12} />
             </button>

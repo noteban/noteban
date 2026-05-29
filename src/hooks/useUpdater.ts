@@ -1,10 +1,10 @@
 import { useCallback, useEffect } from 'react';
-import { check, type Update } from '@tauri-apps/plugin-updater';
+import type { Update } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
-import { open } from '@tauri-apps/plugin-shell';
 import { useUpdateStore, useSettingsStore } from '../stores';
 import { debugLog } from '../utils/debugLogger';
-import { isLinux } from '../utils/platform';
+import { openExternalUrl } from '../utils/externalOpen';
+import { isIOS, isLinux } from '../utils/platform';
 const GITHUB_RELEASES_URL = 'https://github.com/noteban/noteban/releases/latest';
 
 // Set to true to mock update availability in dev mode
@@ -31,9 +31,15 @@ export function useUpdater() {
   } = useUpdateStore();
 
   const disableUpdateChecks = useSettingsStore((state) => state.root.disableUpdateChecks);
+  const isUpdateSupported = !isIOS;
 
   const checkForUpdates = useCallback(async (manual = true) => {
     if (isChecking) return;
+    if (!isUpdateSupported) {
+      updateObject = null;
+      setUpdateAvailable(null);
+      return;
+    }
 
     // Manual check should reset dismissal so notification shows again
     if (manual) {
@@ -57,6 +63,7 @@ export function useUpdater() {
         return;
       }
 
+      const { check } = await import('@tauri-apps/plugin-updater');
       const update = await check();
 
       if (update) {
@@ -78,11 +85,15 @@ export function useUpdater() {
     } finally {
       setChecking(false);
     }
-  }, [isChecking, setChecking, setError, setUpdateAvailable, resetDismissal]);
+  }, [isChecking, isUpdateSupported, setChecking, setError, setUpdateAvailable, resetDismissal]);
 
   const downloadAndInstall = useCallback(async () => {
+    if (!isUpdateSupported) {
+      return;
+    }
+
     if (isLinux) {
-      await open(GITHUB_RELEASES_URL);
+      await openExternalUrl(GITHUB_RELEASES_URL);
       return;
     }
 
@@ -124,16 +135,22 @@ export function useUpdater() {
     } finally {
       setDownloading(false);
     }
-  }, [setDownloading, setError, setDownloadProgress]);
+  }, [isUpdateSupported, setDownloading, setError, setDownloadProgress]);
 
   const openReleasesPage = useCallback(async () => {
-    await open(GITHUB_RELEASES_URL);
+    await openExternalUrl(GITHUB_RELEASES_URL);
   }, []);
 
   // Check for updates on mount with a small delay (unless disabled)
   useEffect(() => {
     if (disableUpdateChecks) {
       debugLog.log('Update checks disabled by user setting');
+      return;
+    }
+    if (!isUpdateSupported) {
+      debugLog.log('Update checks disabled on iOS');
+      updateObject = null;
+      setUpdateAvailable(null);
       return;
     }
 
@@ -143,7 +160,7 @@ export function useUpdater() {
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, [disableUpdateChecks, checkForUpdates]);
+  }, [disableUpdateChecks, isUpdateSupported, checkForUpdates, setUpdateAvailable]);
 
   return {
     isChecking,
@@ -153,6 +170,7 @@ export function useUpdater() {
     downloadProgress,
     dismissedVersion,
     isLinux,
+    isUpdateSupported,
     checkForUpdates: () => checkForUpdates(true), // External calls are manual
     downloadAndInstall,
     openReleasesPage,

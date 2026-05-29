@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Trash2, Pencil } from 'lucide-react';
+import { FolderInput, Trash2, Pencil } from 'lucide-react';
 import './ContextMenu.css';
 
 interface ContextMenuProps {
@@ -8,9 +8,10 @@ interface ContextMenuProps {
   onClose: () => void;
   onDelete: () => void;
   onRename: () => void;
+  onMove?: () => void;
 }
 
-export function ContextMenu({ x, y, onClose, onDelete, onRename }: ContextMenuProps) {
+export function ContextMenu({ x, y, onClose, onDelete, onRename, onMove }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -49,6 +50,12 @@ export function ContextMenu({ x, y, onClose, onDelete, onRename }: ContextMenuPr
         <Pencil size={14} />
         <span>Rename</span>
       </button>
+      {onMove && (
+        <button className="context-menu-item" onClick={onMove}>
+          <FolderInput size={14} />
+          <span>Move…</span>
+        </button>
+      )}
       <button className="context-menu-item context-menu-item-danger" onClick={onDelete}>
         <Trash2 size={14} />
         <span>Delete</span>

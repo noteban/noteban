@@ -61,9 +61,7 @@
     },
     "clipboard-manager:allow-read-image",
     "clipboard-manager:allow-read-text",
-    "updater:default",
-    "updater:allow-check",
-    "updater:allow-download-and-install",
-    "shell:allow-open"
+    "opener:allow-open-url",
+    "opener:allow-default-urls"
   ]
 }

@@ -1,5 +1,5 @@
 import type { AppSettingsRoot, Profile, ProfileSettings, KanbanColumnSettings } from '../types/settings';
-import { DEFAULT_PROFILE_SETTINGS, DEFAULT_APP_SETTINGS, DEFAULT_AI_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
+import { DEFAULT_PROFILE_SETTINGS, DEFAULT_APP_SETTINGS, DEFAULT_AI_SETTINGS, DEFAULT_SYNC_SETTINGS, SETTINGS_SCHEMA_VERSION } from '../types/settings';
 import { DEFAULT_COLUMNS } from '../types/kanban';
 
 // Old format (version 1 or unversioned)
@@ -53,6 +53,7 @@ export function migrateSettings(
           ? legacy.settings.columns
           : DEFAULT_COLUMNS,
         ai: DEFAULT_AI_SETTINGS,
+        sync: { ...DEFAULT_SYNC_SETTINGS },
       },
     };
 
@@ -63,6 +64,7 @@ export function migrateSettings(
       disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
       enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
       useNativeDecorations: DEFAULT_APP_SETTINGS.useNativeDecorations,
+      mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
     };
 
     return {
@@ -80,6 +82,7 @@ export function migrateSettings(
         version: 3,
         disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
         enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
+        mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
       },
       settings: state.settings,
     }, 3);
@@ -93,6 +96,7 @@ export function migrateSettings(
         ...state.root,
         version: 4,
         useNativeDecorations: DEFAULT_APP_SETTINGS.useNativeDecorations,
+        mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
       },
       settings: state.settings,
     }, 4);
@@ -105,9 +109,37 @@ export function migrateSettings(
     // Add AI settings to all profiles
     const updatedProfiles = state.root.profiles.map(profile => ({
       ...profile,
+        settings: {
+          ...profile.settings,
+          ai: DEFAULT_AI_SETTINGS,
+          sync: { ...DEFAULT_SYNC_SETTINGS },
+        },
+      }));
+
+    return {
+      root: {
+        ...state.root,
+        version: SETTINGS_SCHEMA_VERSION,
+        mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
+        profiles: updatedProfiles,
+      },
+      settings: {
+        ...state.settings,
+        ai: DEFAULT_AI_SETTINGS,
+        sync: { ...DEFAULT_SYNC_SETTINGS },
+      },
+    };
+  }
+
+  // Handle version 5 -> 6 migration (add sync settings)
+  if (version === 5) {
+    const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
+
+    const updatedProfiles = state.root.profiles.map(profile => ({
+      ...profile,
       settings: {
         ...profile.settings,
-        ai: DEFAULT_AI_SETTINGS,
+        sync: { ...DEFAULT_SYNC_SETTINGS },
       },
     }));
 
@@ -115,18 +147,39 @@ export function migrateSettings(
       root: {
         ...state.root,
         version: SETTINGS_SCHEMA_VERSION,
+        mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
         profiles: updatedProfiles,
       },
       settings: {
         ...state.settings,
-        ai: DEFAULT_AI_SETTINGS,
+        sync: { ...DEFAULT_SYNC_SETTINGS },
       },
     };
   }
 
-  // Handle version 5+ (current format) - no migration needed
+  // Handle version 6 -> 7 migration (add mobile interaction setting)
+  if (version === 6) {
+    const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
+
+    return {
+      root: {
+        ...state.root,
+        version: SETTINGS_SCHEMA_VERSION,
+        mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
+      },
+      settings: state.settings,
+    };
+  }
+
+  // Handle version 7+ (current format) - no migration needed
   const state = persistedState as { root: AppSettingsRoot; settings: ProfileSettings };
-  return state;
+  return {
+    ...state,
+    root: {
+      ...state.root,
+      mobileInteractionMode: state.root.mobileInteractionMode ?? DEFAULT_APP_SETTINGS.mobileInteractionMode,
+    },
+  };
 }
 
 export function createDefaultProfile(name: string = 'Default'): Profile {
@@ -136,6 +189,7 @@ export function createDefaultProfile(name: string = 'Default'): Profile {
     settings: {
       ...DEFAULT_PROFILE_SETTINGS,
       columns: DEFAULT_COLUMNS,
+      sync: { ...DEFAULT_SYNC_SETTINGS },
     },
   };
 }
@@ -149,6 +203,7 @@ export function createInitialRoot(): AppSettingsRoot {
     disableUpdateChecks: DEFAULT_APP_SETTINGS.disableUpdateChecks,
     enableDebugLogging: DEFAULT_APP_SETTINGS.enableDebugLogging,
     useNativeDecorations: DEFAULT_APP_SETTINGS.useNativeDecorations,
+    mobileInteractionMode: DEFAULT_APP_SETTINGS.mobileInteractionMode,
   };
 }
 

@@ -3,6 +3,7 @@ import { ChevronDown, User, Plus, Check, ExternalLink } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 import { useSettingsStore } from '../../stores';
 import { debugLog } from '../../utils/debugLogger';
+import { isMobile } from '../../utils/platform';
 import './ProfileSwitcher.css';
 
 export function ProfileSwitcher() {
@@ -89,7 +90,7 @@ export function ProfileSwitcher() {
                     <Check size={14} className="profile-switcher-item-check" />
                   )}
                 </button>
-                {profile.id !== root.activeProfileId && (
+                {profile.id !== root.activeProfileId && !isMobile && (
                   <button
                     className="profile-switcher-item-external"
                     title="Open in new window"

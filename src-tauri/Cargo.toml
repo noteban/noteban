@@ -34,6 +34,15 @@ directories = "6.0"
 sha2 = "0.11"
 regex = "1.12"
 lazy_static = "1.4"
-tauri-plugin-updater = "2"
-tauri-plugin-shell = "2"
+tauri-plugin-opener = "2"
 atomicwrites = "0.4"
+keyring = { version = "3.6", default-features = false, features = ["apple-native", "windows-native", "sync-secret-service"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+roxmltree = "0.20"
+url = "2.5"
+urlencoding = "2.1"
+rustls = { version = "0.23.38", default-features = false, features = ["ring"] }
+tokio = { version = "1", features = ["sync"] }
+
+[target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
+tauri-plugin-updater = "2"

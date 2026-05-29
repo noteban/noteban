@@ -110,7 +110,7 @@ export function usePieMenu(options: UsePieMenuOptions = {}): UsePieMenuReturn {
       longPressTimer.current = window.setTimeout(() => {
         longPressTimer.current = null;
         longPressOpenedPointer.current = pointerId;
-        openAt({ x: startX, y: startY });
+        openAt({ x: startX, y: startY, activePointerId: pointerId });
       }, longPressMs);
     },
     [clearTimer, enableClick, enableLongPress, longPressMs, openAt],

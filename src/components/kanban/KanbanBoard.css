@@ -96,3 +96,19 @@
   overflow-x: auto;
   padding-bottom: var(--spacing-md);
 }
+
+@media (max-width: 760px) {
+  .kanban-board {
+    padding: var(--spacing-sm);
+  }
+
+  .kanban-columns {
+    gap: var(--spacing-sm);
+    scroll-snap-type: x proximity;
+  }
+
+  .kanban-columns > * {
+    min-width: min(82vw, 320px);
+    scroll-snap-align: start;
+  }
+}

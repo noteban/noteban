@@ -205,11 +205,8 @@ impl CacheDb {
     }
 
     fn ensure_tag_exists_tx(&self, tx: &Transaction<'_>, tag: &str) -> Result<(), String> {
-        tx.execute(
-            "INSERT OR IGNORE INTO tags (name) VALUES (?)",
-            [tag],
-        )
-        .map_err(|e| format!("Failed to ensure tag exists: {}", e))?;
+        tx.execute("INSERT OR IGNORE INTO tags (name) VALUES (?)", [tag])
+            .map_err(|e| format!("Failed to ensure tag exists: {}", e))?;
         Ok(())
     }
 

@@ -5,6 +5,7 @@ import { markdown, markdownLanguage } from '@codemirror/lang-markdown';
 import { languages } from '@codemirror/language-data';
 import { EditorView } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
+import { clearActiveEditor, setActiveEditor } from '../../lib/accessoryBridge';
 import { HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import { useNotesStore, useSettingsStore, useUIStore } from '../../stores';
@@ -18,6 +19,7 @@ import { listContinuationKeymap } from './listContinuationPlugin';
 import { TagSuggestionButton } from './TagSuggestionButton';
 import { useTags } from '../../hooks/useTags';
 import { debugLog } from '../../utils/debugLogger';
+import { openExternalUrl } from '../../utils/externalOpen';
 import './MarkdownEditor.css';
 
 // Catppuccin Mocha theme for CodeMirror
@@ -127,8 +129,8 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
   // Listen for link clicks from the editor plugin (Cmd/Ctrl+click)
   useEffect(() => {
     const handleLinkClick = (e: CustomEvent<string>) => {
-      import('@tauri-apps/plugin-shell').then(({ open }) => {
-        open(e.detail);
+      openExternalUrl(e.detail).catch((error) => {
+        debugLog.error('Failed to open editor link:', error);
       });
     };
 
@@ -151,6 +153,7 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
     () => notes.find(n => n.frontmatter.id === activeNoteId),
     [notes, activeNoteId]
   );
+  const activeNoteFilePath = activeNote?.file_path;
 
   const debouncedSave = useDebounce(
     useCallback(async (content: string) => {
@@ -216,6 +219,16 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
       modifierClassPlugin,
       linkTheme,
       linkClickHandler,
+      EditorView.domEventHandlers({
+        focus: (_event, view) => {
+          setActiveEditor(view);
+          return false;
+        },
+        blur: (_event, view) => {
+          clearActiveEditor(view);
+          return false;
+        },
+      }),
       EditorView.theme({
         '.cm-content': {
           fontSize: `${settings.editorFontSize}px`,
@@ -238,12 +251,12 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
     ];
 
     // Add image plugin when a note is active
-    if (activeNote?.file_path) {
-      exts.push(imagePlugin(activeNote.file_path));
+    if (activeNoteFilePath) {
+      exts.push(imagePlugin(activeNoteFilePath));
     }
 
     return exts;
-  }, [settings.editorFontSize, activeNote?.file_path, tagsByFrequency]);
+  }, [settings.editorFontSize, activeNoteFilePath, tagsByFrequency]);
 
   if (!activeNote) {
     return (

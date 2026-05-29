@@ -32,4 +32,20 @@ CREATE INDEX IF NOT EXISTS idx_notes_file_path ON notes(file_path);
 CREATE INDEX IF NOT EXISTS idx_notes_column ON notes(column_name);
 CREATE INDEX IF NOT EXISTS idx_note_tags_note ON note_tags(note_id);
 CREATE INDEX IF NOT EXISTS idx_note_tags_tag ON note_tags(tag_id);
+
+CREATE TABLE IF NOT EXISTS sync_files (
+    relative_path TEXT PRIMARY KEY,
+    local_hash TEXT,
+    remote_etag TEXT,
+    last_synced_hash TEXT,
+    local_mtime INTEGER,
+    remote_mtime INTEGER,
+    remote_size INTEGER,
+    synced_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sync_state (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
 "#;

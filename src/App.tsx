@@ -4,15 +4,18 @@ import { watchImmediate } from '@tauri-apps/plugin-fs';
 import { exit } from '@tauri-apps/plugin-process';
 import { invoke } from '@tauri-apps/api/core';
 import type { UnwatchFn } from '@tauri-apps/plugin-fs';
-import { Layout } from './components/layout';
+import { Layout, SettingsModal } from './components/layout';
 import { NoteEditor } from './components/editor';
+import { KeyboardAccessoryBar } from './components/editor/KeyboardAccessoryBar';
 import { KanbanBoard } from './components/kanban';
 import { useNotesStore } from './stores/notesStore';
 import { useSettingsStore } from './stores/settingsStore';
 import { useUIStore } from './stores/uiStore';
+import { useSyncStore } from './stores/syncStore';
 import type { FileChangeEvent } from './types/folder';
 import { initDebugLogging, debugLog } from './utils/debugLogger';
 import { setWindowTitle } from './utils/windowTitle';
+import { isMobile } from './utils/platform';
 import './styles/globals.css';
 
 // Map Tauri watch event types to our change event types
@@ -23,13 +26,18 @@ function mapWatchEventType(type: string): FileChangeEvent['event_type'] {
 }
 
 function App() {
-  const { loadNotes, setActiveNote, initializeCache, processFileChanges, cacheInitialized } =
+  const { notes, loadNotes, setActiveNote, initializeCache, processFileChanges, cacheInitialized } =
     useNotesStore();
   const { settings, root, setNotesDirectory } = useSettingsStore();
-  const { currentView, setView } = useUIStore();
+  const { currentView, setView, setShowSettings } = useUIStore();
+  const { syncNow, loadStatus, ensureNextcloudNotesDirectory } = useSyncStore();
   const [isSelectingFolder, setIsSelectingFolder] = useState(false);
   const debounceTimerRef = useRef<number | null>(null);
   const pendingChangesRef = useRef<FileChangeEvent[]>([]);
+  const autoSyncTimerRef = useRef<number | null>(null);
+  const autoSyncDeadlineRef = useRef<number>(Number.POSITIVE_INFINITY);
+  const lastAutoSyncRef = useRef(0);
+  const prevNotesSignatureRef = useRef('');
 
   // Track previous profile to detect switches
   const prevProfileIdRef = useRef<string>(root.activeProfileId);
@@ -45,6 +53,33 @@ function App() {
       initDebugLogging();
     }
   }, [root.enableDebugLogging]);
+
+  useEffect(() => {
+    if (settings.sync.provider === 'nextcloud') {
+      loadStatus();
+    }
+  }, [root.activeProfileId, settings.sync.provider, loadStatus]);
+
+  useEffect(() => {
+    if (
+      settings.sync.provider !== 'nextcloud' ||
+      !settings.sync.enabled ||
+      !cacheInitialized
+    ) {
+      return;
+    }
+
+    ensureNextcloudNotesDirectory().catch((error) => {
+      debugLog.error('Failed to prepare Nextcloud notes directory:', error);
+    });
+  }, [
+    root.activeProfileId,
+    settings.sync.provider,
+    settings.sync.enabled,
+    settings.notesDirectory,
+    cacheInitialized,
+    ensureNextcloudNotesDirectory,
+  ]);
 
   // Check for initial profile from command line argument and set window title
   useEffect(() => {
@@ -104,6 +139,7 @@ function App() {
 
   // Handle quit shortcut (Ctrl+Q / Cmd+Q)
   const handleQuitShortcut = useCallback((e: KeyboardEvent) => {
+    if (isMobile) return;
     if (e.key === 'q' && (e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       exit(0);
@@ -115,9 +151,95 @@ function App() {
     return () => document.removeEventListener('keydown', handleQuitShortcut);
   }, [handleQuitShortcut]);
 
+  const scheduleAutoSync = useCallback((delayMs = 8000) => {
+    if (
+      settings.sync.provider !== 'nextcloud' ||
+      !settings.sync.enabled ||
+      !settings.notesDirectory ||
+      !cacheInitialized
+    ) {
+      return;
+    }
+
+    // Don't replace a sooner scheduled sync with a later one. Otherwise the
+    // initial 1s startup sync gets clobbered by the 8s notes-load sync,
+    // delaying first sync on every app restart with existing notes.
+    const newDeadline = Date.now() + delayMs;
+    if (autoSyncTimerRef.current && newDeadline >= autoSyncDeadlineRef.current) {
+      return;
+    }
+
+    if (autoSyncTimerRef.current) {
+      clearTimeout(autoSyncTimerRef.current);
+    }
+    autoSyncDeadlineRef.current = newDeadline;
+
+    autoSyncTimerRef.current = window.setTimeout(() => {
+      autoSyncTimerRef.current = null;
+      autoSyncDeadlineRef.current = Number.POSITIVE_INFINITY;
+      const now = Date.now();
+      if (now - lastAutoSyncRef.current < 30_000) {
+        return;
+      }
+      lastAutoSyncRef.current = now;
+      syncNow().catch((error) => {
+        debugLog.error('Automatic sync failed:', error);
+      });
+    }, delayMs);
+  }, [
+    settings.sync.provider,
+    settings.sync.enabled,
+    settings.notesDirectory,
+    cacheInitialized,
+    syncNow,
+  ]);
+
+  useEffect(() => {
+    if (settings.sync.provider === 'nextcloud' && settings.sync.enabled && settings.notesDirectory) {
+      scheduleAutoSync(1000);
+    }
+
+    return () => {
+      if (autoSyncTimerRef.current) {
+        clearTimeout(autoSyncTimerRef.current);
+        autoSyncTimerRef.current = null;
+      }
+      autoSyncDeadlineRef.current = Number.POSITIVE_INFINITY;
+    };
+  }, [
+    root.activeProfileId,
+    settings.sync.provider,
+    settings.sync.enabled,
+    settings.notesDirectory,
+    scheduleAutoSync,
+  ]);
+
+  useEffect(() => {
+    const signature = notes
+      .map((note) => `${note.frontmatter.id}:${note.frontmatter.modified}:${note.file_path}`)
+      .join('|');
+    if (!signature || signature === prevNotesSignatureRef.current) {
+      prevNotesSignatureRef.current = signature;
+      return;
+    }
+    prevNotesSignatureRef.current = signature;
+    scheduleAutoSync();
+  }, [notes, scheduleAutoSync]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        scheduleAutoSync(500);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [scheduleAutoSync]);
+
   // Watch for external file changes - use incremental updates
   useEffect(() => {
-    if (!settings.notesDirectory || !cacheInitialized) return;
+    if (!settings.notesDirectory || !cacheInitialized || isMobile) return;
 
     let unwatch: UnwatchFn | null = null;
 
@@ -198,6 +320,17 @@ function App() {
     }
   };
 
+  const handleUseLocalStorage = async () => {
+    try {
+      const dir = await invoke<string>('get_default_notes_dir', {
+        profileId: root.activeProfileId,
+      });
+      setNotesDirectory(dir);
+    } catch (error) {
+      debugLog.error('Failed to prepare local notes directory:', error);
+    }
+  };
+
   // Get active profile for display
   const activeProfile = root.profiles.find(p => p.id === root.activeProfileId);
 
@@ -212,28 +345,51 @@ function App() {
             </p>
           )}
           <p className="app-setup-description">
-            Select a folder where your notes will be stored as markdown files.
+            {isMobile
+              ? 'Connect Nextcloud to sync your markdown notes, or keep a local notebook on this device.'
+              : 'Select a folder where your notes will be stored as markdown files.'}
           </p>
-          <button
-            className="app-setup-button"
-            onClick={handleSelectFolder}
-            disabled={isSelectingFolder}
-          >
-            {isSelectingFolder ? 'Selecting...' : 'Choose Notes Folder'}
-          </button>
+          {isMobile ? (
+            <div className="app-setup-actions">
+              <button
+                className="app-setup-button"
+                onClick={() => setShowSettings(true)}
+              >
+                Connect Nextcloud
+              </button>
+              <button
+                className="app-setup-button secondary"
+                onClick={handleUseLocalStorage}
+              >
+                Use Local Only
+              </button>
+            </div>
+          ) : (
+            <button
+              className="app-setup-button"
+              onClick={handleSelectFolder}
+              disabled={isSelectingFolder}
+            >
+              {isSelectingFolder ? 'Selecting...' : 'Choose Notes Folder'}
+            </button>
+          )}
         </div>
+        <SettingsModal />
       </div>
     );
   }
 
   return (
-    <Layout>
-      {currentView === 'notes' ? (
-        <NoteEditor />
-      ) : (
-        <KanbanBoard />
-      )}
-    </Layout>
+    <>
+      <Layout>
+        {currentView === 'notes' ? (
+          <NoteEditor />
+        ) : (
+          <KanbanBoard />
+        )}
+      </Layout>
+      <KeyboardAccessoryBar />
+    </>
   );
 }
 

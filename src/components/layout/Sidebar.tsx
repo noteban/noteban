@@ -1,16 +1,25 @@
 import { useState } from 'react';
-import { Plus, FolderPlus, X, Tag } from 'lucide-react';
+import { Plus, FolderPlus, X, Tag, Settings } from 'lucide-react';
 import { useNotesStore, useSettingsStore, useUIStore, useFolderStore } from '../../stores';
 import { FolderTree } from './FolderTree';
 import { TagCloud } from './TagCloud';
 import { hasTagFilter } from '../../utils/tagFilterParser';
 import { debugLog } from '../../utils/debugLogger';
+import { isIOS, isMobile } from '../../utils/platform';
 import './Sidebar.css';
 
 export function Sidebar() {
   const { createNote, setActiveNote } = useNotesStore();
   const { settings } = useSettingsStore();
-  const { currentView, tagFilter, removeTagFromFilter, setOperatorAtIndex, clearTagFilter } = useUIStore();
+  const {
+    currentView,
+    tagFilter,
+    removeTagFromFilter,
+    setOperatorAtIndex,
+    clearTagFilter,
+    setMobileSidebarOpen,
+    setShowSettings,
+  } = useUIStore();
   const { selectedFolder, createFolder } = useFolderStore();
   const [isCreatingFolder, setIsCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -26,6 +35,9 @@ export function Sidebar() {
         column: 'todo',
       });
       setActiveNote(note.frontmatter.id);
+      if (isMobile) {
+        setMobileSidebarOpen(false);
+      }
     } catch (error) {
       debugLog.error('Failed to create note:', error);
     }
@@ -46,7 +58,7 @@ export function Sidebar() {
     }
   };
 
-  if (currentView === 'kanban') {
+  if (currentView === 'kanban' && !isIOS) {
     return null;
   }
 
@@ -55,6 +67,11 @@ export function Sidebar() {
   const handleToggleOperator = (index: number) => {
     const currentOp = tagFilter.operators[index];
     setOperatorAtIndex(index, currentOp === 'AND' ? 'OR' : 'AND');
+  };
+
+  const handleOpenSettings = () => {
+    setMobileSidebarOpen(false);
+    setShowSettings(true);
   };
 
   return (
@@ -139,6 +156,14 @@ export function Sidebar() {
 
       <FolderTree />
       <TagCloud />
+      {isIOS && (
+        <div className="sidebar-ios-footer">
+          <button className="sidebar-settings-btn" onClick={handleOpenSettings}>
+            <Settings size={17} />
+            <span>Settings</span>
+          </button>
+        </div>
+      )}
     </aside>
   );
 }

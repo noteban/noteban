@@ -1,12 +1,12 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { Search, Kanban, FileText, Settings, X, Hash, Info, Minus, Square, Copy } from 'lucide-react';
+import { Search, Kanban, FileText, Settings, X, Hash, Info, Minus, Square, Copy, Menu } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useUIStore, useSettingsStore } from '../../stores';
 import { useTags } from '../../hooks';
 import { parseTagFilterExpression, hasTagFilter } from '../../utils/tagFilterParser';
 import type { TagFilterOperator } from '../../types/tagFilter';
 import { ProfileSwitcher } from './ProfileSwitcher';
-import { isLinux, modifierKey } from '../../utils/platform';
+import { isIOS, isLinux, isMobile, modifierKey } from '../../utils/platform';
 import './Header.css';
 
 const appWindow = getCurrentWindow();
@@ -19,6 +19,7 @@ export function Header() {
     setSearchQuery,
     setShowSettings,
     setShowAbout,
+    setMobileSidebarOpen,
     tagFilter,
     setTagFilter,
     setFilterTag,
@@ -256,6 +257,15 @@ export function Header() {
   return (
     <header className="header" {...(isLinux && !root.useNativeDecorations && { 'data-tauri-drag-region': true })}>
       <div className="header-left">
+        {isMobile && (currentView === 'notes' || isIOS) && (
+          <button
+            className="header-menu-btn"
+            onClick={() => setMobileSidebarOpen(true)}
+            title="Menu"
+          >
+            <Menu size={20} />
+          </button>
+        )}
         <h1 className="header-logo">Notes</h1>
       </div>
 
@@ -341,35 +351,39 @@ export function Header() {
       </div>
 
       <div className="header-right">
-        <ProfileSwitcher />
-        <button
-          className={`header-view-btn ${currentView === 'notes' ? 'active' : ''}`}
-          onClick={() => setView('notes')}
-          title="Notes View"
-        >
-          <FileText size={18} />
-        </button>
-        <button
-          className={`header-view-btn ${currentView === 'kanban' ? 'active' : ''}`}
-          onClick={() => setView('kanban')}
-          title="Kanban View"
-        >
-          <Kanban size={18} />
-        </button>
-        <button
-          className="header-settings-btn"
-          title="About"
-          onClick={() => setShowAbout(true)}
-        >
-          <Info size={18} />
-        </button>
-        <button
-          className="header-settings-btn"
-          title="Settings"
-          onClick={() => setShowSettings(true)}
-        >
-          <Settings size={18} />
-        </button>
+        {!isIOS && <ProfileSwitcher />}
+        {!isIOS && (
+          <>
+            <button
+              className={`header-view-btn ${currentView === 'notes' ? 'active' : ''}`}
+              onClick={() => setView('notes')}
+              title="Notes View"
+            >
+              <FileText size={18} />
+            </button>
+            <button
+              className={`header-view-btn ${currentView === 'kanban' ? 'active' : ''}`}
+              onClick={() => setView('kanban')}
+              title="Kanban View"
+            >
+              <Kanban size={18} />
+            </button>
+            <button
+              className="header-settings-btn"
+              title="About"
+              onClick={() => setShowAbout(true)}
+            >
+              <Info size={18} />
+            </button>
+            <button
+              className="header-settings-btn"
+              title="Settings"
+              onClick={() => setShowSettings(true)}
+            >
+              <Settings size={18} />
+            </button>
+          </>
+        )}
         {isLinux && !root.useNativeDecorations && (
           <div className="window-controls">
             <button

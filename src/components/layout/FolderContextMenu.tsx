@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FolderPlus, Pencil, Trash2 } from 'lucide-react';
 import { useFolderStore, useSettingsStore, useNotesStore } from '../../stores';
 import { debugLog } from '../../utils/debugLogger';
+import { isIOS } from '../../utils/platform';
 import type { Folder } from '../../types/folder';
 import './ContextMenu.css';
 
@@ -10,6 +11,7 @@ interface FolderContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
+  initialMode?: 'menu' | 'create' | 'rename';
 }
 
 export function FolderContextMenu({
@@ -17,13 +19,14 @@ export function FolderContextMenu({
   x,
   y,
   onClose,
+  initialMode = 'menu',
 }: FolderContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null);
   const { createFolder, renameFolder, deleteFolder } = useFolderStore();
   const { loadNotes } = useNotesStore();
   const { settings } = useSettingsStore();
-  const [mode, setMode] = useState<'menu' | 'create' | 'rename'>('menu');
-  const [inputValue, setInputValue] = useState('');
+  const [mode, setMode] = useState<'menu' | 'create' | 'rename'>(initialMode);
+  const [inputValue, setInputValue] = useState(initialMode === 'rename' ? folder?.name ?? '' : '');
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -121,7 +124,7 @@ export function FolderContextMenu({
             style={{
               width: '100%',
               padding: 'var(--spacing-sm)',
-              fontSize: 'var(--font-size-sm)',
+              fontSize: isIOS ? '16px' : 'var(--font-size-sm)',
               backgroundColor: 'var(--ctp-surface1)',
               color: 'var(--text-primary)',
               border: '1px solid var(--ctp-surface2)',

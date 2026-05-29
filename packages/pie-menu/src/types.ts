@@ -18,6 +18,13 @@ export interface PieMenuItem {
 export interface PieMenuOrigin {
   x: number;
   y: number;
+  /**
+   * Pointer id of an in-flight gesture that opened the menu (e.g. the touch
+   * that fired the long-press timer). When set, `PieMenu` keeps tracking that
+   * pointer at the window level so the user can drag straight from the open
+   * gesture into a sector and release to select.
+   */
+  activePointerId?: number | null;
 }
 
 export interface PieMenuProps {

@@ -1,0 +1,96 @@
+.confirm-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-md);
+  z-index: 1200;
+  animation: confirm-dialog-fade-in 140ms ease-out;
+}
+
+@keyframes confirm-dialog-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.confirm-dialog {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--ctp-surface1);
+  border-radius: var(--radius-lg);
+  width: min(420px, 100%);
+  padding: var(--spacing-lg) var(--spacing-lg) var(--spacing-md);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+  animation: confirm-dialog-scale-in 160ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes confirm-dialog-scale-in {
+  from { transform: scale(0.96); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.confirm-dialog-title {
+  margin: 0 0 var(--spacing-sm);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.confirm-dialog-message {
+  margin: 0 0 var(--spacing-lg);
+  font-size: 0.95rem;
+  color: var(--text-secondary, var(--ctp-subtext0));
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--spacing-sm);
+}
+
+.confirm-dialog-button {
+  min-height: 40px;
+  padding: 0 var(--spacing-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--ctp-surface1);
+  background-color: transparent;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color var(--transition-fast, 120ms ease),
+    border-color var(--transition-fast, 120ms ease);
+}
+
+.confirm-dialog-button:hover:not(:disabled),
+.confirm-dialog-button:focus-visible {
+  background-color: var(--ctp-surface1);
+}
+
+.confirm-dialog-button-primary {
+  background-color: var(--ctp-surface1);
+  border-color: var(--ctp-surface1);
+}
+
+.confirm-dialog-button-primary[data-danger='true'] {
+  background-color: var(--ctp-red);
+  border-color: var(--ctp-red);
+  color: var(--ctp-base);
+}
+
+.confirm-dialog-button-primary[data-danger='true']:hover,
+.confirm-dialog-button-primary[data-danger='true']:focus-visible {
+  background-color: var(--ctp-red);
+  filter: brightness(1.1);
+}
+
+@media (max-width: 760px) {
+  .confirm-dialog-button {
+    min-height: 48px;
+    flex: 1;
+  }
+}

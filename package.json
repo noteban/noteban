@@ -38,7 +38,7 @@
     "fuse.js": "^7.3.0",
     "gray-matter": "^4.0.3",
     "lucide-react": "^1.17.0",
-    "react": "^19.2.6",
+    "react": "^19.2.7",
     "react-dom": "^19.2.6",
     "uuid": "^14.0.0",
     "zustand": "^5.0.13"
@@ -47,7 +47,7 @@
     "@eslint/js": "^10.0.1",
     "@tauri-apps/cli": "^2.11.2",
     "@types/node": "^25.9.1",
-    "@types/react": "^19.2.15",
+    "@types/react": "^19.2.16",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.4.0",

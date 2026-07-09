@@ -61,6 +61,14 @@ export function SettingsModal() {
   const [editingName, setEditingName] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [nextcloudUrl, setNextcloudUrl] = useState(settings.sync.serverUrl || '');
+  // Re-sync the input when the stored URL changes (connect, disconnect,
+  // profile switch) — adjusted during render instead of in an effect, per
+  // https://react.dev/learn/you-might-not-need-an-effect
+  const [prevServerUrl, setPrevServerUrl] = useState(settings.sync.serverUrl);
+  if (prevServerUrl !== settings.sync.serverUrl) {
+    setPrevServerUrl(settings.sync.serverUrl);
+    setNextcloudUrl(settings.sync.serverUrl || '');
+  }
 
   // AI settings state
   const [models, setModels] = useState<string[]>([]);
@@ -69,10 +77,6 @@ export function SettingsModal() {
   const showAiSettings = !isIOS;
   const showUpdateSettings = !isIOS;
   const showStorageSettings = !isIOS;
-
-  useEffect(() => {
-    setNextcloudUrl(settings.sync.serverUrl || '');
-  }, [settings.sync.serverUrl]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {

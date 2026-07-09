@@ -133,10 +133,12 @@ describe('unit suffixes', () => {
     expect(analyzeLine('2T =')?.resultText).toBe('2 000 000 000 000');
   });
 
-  it('rejects suffixes glued to identifiers and lowercase m/g/t', () => {
-    expect(analyzeLine('8km =')).toBeNull();
-    expect(analyzeLine('32g =')).toBeNull();
-    expect(analyzeLine('8m =')).toBeNull();
+  it('treats glued known-unit idents as quantities, rejects unknown ones', () => {
+    expect(analyzeLine('8km =')?.resultText).toBe('8 km');
+    expect(analyzeLine('32g =')?.resultText).toBe('32 g');
+    expect(analyzeLine('8m =')?.resultText).toBe('8 m');
+    expect(analyzeLine('8foo =')).toBeNull();
+    expect(analyzeLine('8qB =')).toBeNull();
   });
 });
 
@@ -235,6 +237,125 @@ describe('formatResult', () => {
 
   it('handles large grouped values', () => {
     expect(formatResult(19.2e9)).toBe('19 200 000 000');
+  });
+});
+
+describe('extended functions and constants', () => {
+  it('evaluates ln/exp/pow', () => {
+    expect(analyzeLine('ln(e) =')?.resultText).toBe('1');
+    expect(valueOf('exp(1) =')).toBeCloseTo(Math.E, 10);
+    expect(analyzeLine('pow(2, 10) =')?.resultText).toBe('1 024');
+  });
+
+  it('does trig in degrees', () => {
+    expect(analyzeLine('sin(30) =')?.resultText).toBe('0.5');
+    expect(analyzeLine('cos(60) =')?.resultText).toBe('0.5');
+    expect(analyzeLine('tan(45) =')?.resultText).toBe('1');
+    expect(analyzeLine('asin(1) =')?.resultText).toBe('90');
+    expect(analyzeLine('atan(1) =')?.resultText).toBe('45');
+  });
+
+  it('provides pi and e, shadowable by definitions', () => {
+    expect(analyzeLine('pi =')?.resultText).toBe('3.14159265359');
+    expect(valueOf('pi =', ['pi = 3'])).toBe(3);
+    expect(valueOf('e + 1 =')).toBeCloseTo(Math.E + 1, 10);
+  });
+});
+
+describe('thousands-separated input', () => {
+  it('merges space-grouped digits', () => {
+    expect(analyzeLine('16 000 000 000 =')?.resultText).toBe('16 000 000 000');
+    expect(valueOf('1 234.5678 =')).toBe(1234.5678);
+    expect(valueOf('1 000k =')).toBe(1_000_000);
+  });
+
+  it('only merges groups of exactly three digits', () => {
+    expect(analyzeLine('1 23 =')).toBeNull();
+    expect(analyzeLine('1 0000 =')).toBeNull();
+  });
+
+  it('does not interfere with function arguments', () => {
+    expect(valueOf('min(1 000, 2) =')).toBe(2);
+  });
+});
+
+describe('hex and binary', () => {
+  it('parses literals', () => {
+    expect(analyzeLine('0xFF =')?.resultText).toBe('255');
+    expect(valueOf('0xff + 1 =')).toBe(256);
+    expect(analyzeLine('0b1010 =')?.resultText).toBe('10');
+  });
+
+  it('converts output with in hex / in bin', () => {
+    expect(analyzeLine('255 in hex =')?.resultText).toBe('0xFF');
+    expect(analyzeLine('256 in hex =')?.resultText).toBe('0x100');
+    expect(analyzeLine('10 in bin =')?.resultText).toBe('0b1010');
+    expect(analyzeLine('-255 in hex =')?.resultText).toBe('-0xFF');
+  });
+
+  it('rejects malformed literals and non-integer conversions', () => {
+    expect(analyzeLine('0x =')).toBeNull();
+    expect(analyzeLine('0b2 =')).toBeNull();
+    expect(analyzeLine('2.5 in hex =')).toBeNull();
+    expect(analyzeLine('8MB in hex =')).toBeNull();
+  });
+});
+
+describe('units', () => {
+  it('renders auto-scaled results', () => {
+    expect(analyzeLine('8MB =')?.resultText).toBe('8 MB');
+    expect(analyzeLine('6kJ/s =')?.resultText).toBe('6 kW');
+    expect(analyzeLine('8MB + 200kB =')?.resultText).toBe('8.2 MB');
+    expect(analyzeLine('8MB / 2s =')?.resultText).toBe('4 MB/s');
+    expect(analyzeLine('0.25h =')?.resultText).toBe('15 min');
+    expect(analyzeLine('0.5kB =')?.resultText).toBe('500 B');
+    expect(analyzeLine('8bit =')?.resultText).toBe('1 B');
+    expect(analyzeLine('2GHz × 0.5 =')?.resultText).toBe('1 GHz');
+  });
+
+  it('accepts one space between number and unit', () => {
+    expect(analyzeLine('8 MB =')?.resultText).toBe('8 MB');
+    expect(analyzeLine('90 min =')?.resultText).toBe('1.5 h');
+  });
+
+  it('converts with in', () => {
+    expect(analyzeLine('8MB in KiB =')?.resultText).toBe('7 812.5 KiB');
+    expect(analyzeLine('1GiB in MB =')?.resultText).toBe('1 073.741824 MB');
+    expect(analyzeLine('90min in h =')?.resultText).toBe('1.5 h');
+    expect(analyzeLine('Speed in km/h =', ['Speed = 100m / 10s'])?.resultText).toBe('36 km/h');
+  });
+
+  it('handles bits and IEC spelling variants', () => {
+    expect(analyzeLine('8MiB in kiB =')?.resultText).toBe('8 192 kiB');
+    expect(analyzeLine('8Mb in MB =')?.resultText).toBe('1 MB');
+    expect(analyzeLine('8Mb =')?.resultText).toBe('1 MB');
+    expect(analyzeLine('1Gb in Mb =')?.resultText).toBe('1 000 Mb');
+    expect(analyzeLine('8b =')?.resultText).toBe('1 B');
+  });
+
+  it('does dimensional arithmetic through variables', () => {
+    expect(analyzeLine('Speed =', ['Speed = 100m / 10s'])?.resultText).toBe('10 m/s');
+    expect(analyzeLine('X + 2MB =', ['X = 8MB'])?.resultText).toBe('10 MB');
+    expect(analyzeLine('X / 3s =', ['X = 2s × 3s'])?.resultText).toBe('2 s');
+    expect(analyzeLine('2GHz × 3s =')?.resultText).toBe('6 000 000 000');
+  });
+
+  it('applies relative percent to quantities', () => {
+    expect(analyzeLine('8MB + 20% =')?.resultText).toBe('9.6 MB');
+  });
+
+  it('silently rejects mismatched or unrenderable dimensions', () => {
+    expect(analyzeLine('8MB + 2s =')).toBeNull();
+    expect(analyzeLine('8MB + 5 =')).toBeNull();
+    expect(analyzeLine('(2s)^2 =')).toBeNull();
+    expect(analyzeLine('2s × 3s =')).toBeNull();
+    expect(analyzeLine('8MB in s =')).toBeNull();
+    expect(analyzeLine('sqrt(4s) =')).toBeNull();
+  });
+
+  it('keeps bare scale suffixes dimensionless', () => {
+    expect(analyzeLine('8k =')?.resultText).toBe('8 000');
+    expect(analyzeLine('8kB =')?.resultText).toBe('8 kB');
   });
 });
 

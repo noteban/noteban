@@ -2,8 +2,16 @@
 //
 // A line like `Params = 32×10^9` defines a variable; a line with a trailing
 // `=` (e.g. `ModelSize =` or `2 + (3 × 4) =`) is a request to evaluate the
-// expression before it. Lines that don't fully parse AND evaluate to a finite
-// number are silently ignored (`Deadline = Friday` stays plain prose).
+// expression before it. Lines that don't fully parse AND evaluate are
+// silently ignored (`Deadline = Friday` stays plain prose).
+//
+// Values are quantities: a magnitude plus a dimension vector, so unit math
+// works dimensionally — `6kJ/s =` shows `6 kW`, `8MB / 2s =` shows `4 MB/s`,
+// and `8MB + 2s` is a silent error. Also supported: thousands-separated
+// input (`16 000 000 000`), hex/bin literals (0xFF, 0b1010), `in`
+// conversions (`8MB in KiB =`, `255 in hex =`), percentages, k/M/G/T scale
+// suffixes on bare numbers, functions (trig in degrees), and the constants
+// pi and e (shadowable by user definitions).
 //
 // Pure module: no CodeMirror, DOM, or Tauri imports. The editor integration
 // lives in src/components/editor/mathPlugin.ts.
@@ -22,13 +30,150 @@ export interface MathLineResult {
   nameSpan?: MathSpan;
   /** Spans of variable references in the expression (all resolved, since the line evaluated). */
   refSpans: MathSpan[];
-  /** Computed value (always finite). */
+  /** Computed magnitude in base units (B, s, J, m, g); always finite. */
   value: number;
   /** Formatted result text; present for 'evaluation' and 'definition-evaluation'. */
   resultText?: string;
   /** Column just after the trailing '='; widget insertion point. */
   resultOffset?: number;
 }
+
+// --- Dimensions and quantities -----------------------------------------------
+
+interface Dim {
+  data: number;
+  time: number;
+  energy: number;
+  length: number;
+  mass: number;
+}
+
+interface Quantity {
+  value: number;
+  dim: Dim;
+}
+
+const DIMLESS: Dim = { data: 0, time: 0, energy: 0, length: 0, mass: 0 };
+
+function dim(partial: Partial<Dim>): Dim {
+  return { ...DIMLESS, ...partial };
+}
+
+function dimCombine(a: Dim, b: Dim, sign: 1 | -1): Dim {
+  return {
+    data: a.data + sign * b.data,
+    time: a.time + sign * b.time,
+    energy: a.energy + sign * b.energy,
+    length: a.length + sign * b.length,
+    mass: a.mass + sign * b.mass,
+  };
+}
+
+function dimEq(a: Dim, b: Dim): boolean {
+  return (
+    a.data === b.data &&
+    a.time === b.time &&
+    a.energy === b.energy &&
+    a.length === b.length &&
+    a.mass === b.mass
+  );
+}
+
+function isDimless(d: Dim): boolean {
+  return dimEq(d, DIMLESS);
+}
+
+function dimKey(d: Dim): string {
+  return `${d.data},${d.time},${d.energy},${d.length},${d.mass}`;
+}
+
+// --- Unit tables --------------------------------------------------------------
+
+interface UnitSpec {
+  /** Multiplier to the dimension's base unit (B, s, J, m, g). */
+  factor: number;
+  dim: Dim;
+}
+
+const DATA = dim({ data: 1 });
+const TIME = dim({ time: 1 });
+const ENERGY = dim({ energy: 1 });
+const POWER = dim({ energy: 1, time: -1 });
+const LENGTH = dim({ length: 1 });
+const MASS = dim({ mass: 1 });
+const FREQUENCY = dim({ time: -1 });
+
+// Flat table (no prefix parsing) so collisions stay explicit — e.g. `ms` is
+// milliseconds, never meter·something; `min` is minutes here but still the
+// function in call position and a plain variable on an LHS.
+const UNITS: Record<string, UnitSpec> = {
+  B: { factor: 1, dim: DATA },
+  kB: { factor: 1e3, dim: DATA },
+  KB: { factor: 1e3, dim: DATA },
+  MB: { factor: 1e6, dim: DATA },
+  GB: { factor: 1e9, dim: DATA },
+  TB: { factor: 1e12, dim: DATA },
+  KiB: { factor: 1024, dim: DATA },
+  kiB: { factor: 1024, dim: DATA },
+  MiB: { factor: 1024 ** 2, dim: DATA },
+  GiB: { factor: 1024 ** 3, dim: DATA },
+  TiB: { factor: 1024 ** 4, dim: DATA },
+  // Lowercase b is bits, networking-style: 8Mb = 1 MB.
+  b: { factor: 0.125, dim: DATA },
+  kb: { factor: 125, dim: DATA },
+  Kb: { factor: 125, dim: DATA },
+  Mb: { factor: 125e3, dim: DATA },
+  Gb: { factor: 125e6, dim: DATA },
+  Tb: { factor: 125e9, dim: DATA },
+  bit: { factor: 0.125, dim: DATA },
+  kbit: { factor: 125, dim: DATA },
+  Mbit: { factor: 125e3, dim: DATA },
+  Gbit: { factor: 125e6, dim: DATA },
+  ms: { factor: 1e-3, dim: TIME },
+  s: { factor: 1, dim: TIME },
+  min: { factor: 60, dim: TIME },
+  h: { factor: 3600, dim: TIME },
+  d: { factor: 86400, dim: TIME },
+  J: { factor: 1, dim: ENERGY },
+  kJ: { factor: 1e3, dim: ENERGY },
+  MJ: { factor: 1e6, dim: ENERGY },
+  GJ: { factor: 1e9, dim: ENERGY },
+  Wh: { factor: 3600, dim: ENERGY },
+  kWh: { factor: 3.6e6, dim: ENERGY },
+  MWh: { factor: 3.6e9, dim: ENERGY },
+  mW: { factor: 1e-3, dim: POWER },
+  W: { factor: 1, dim: POWER },
+  kW: { factor: 1e3, dim: POWER },
+  MW: { factor: 1e6, dim: POWER },
+  GW: { factor: 1e9, dim: POWER },
+  mm: { factor: 1e-3, dim: LENGTH },
+  cm: { factor: 1e-2, dim: LENGTH },
+  m: { factor: 1, dim: LENGTH },
+  km: { factor: 1e3, dim: LENGTH },
+  mg: { factor: 1e-3, dim: MASS },
+  g: { factor: 1, dim: MASS },
+  kg: { factor: 1e3, dim: MASS },
+  Hz: { factor: 1, dim: FREQUENCY },
+  kHz: { factor: 1e3, dim: FREQUENCY },
+  MHz: { factor: 1e6, dim: FREQUENCY },
+  GHz: { factor: 1e9, dim: FREQUENCY },
+};
+
+// Auto-scaled display: for a result's dimension, pick the largest unit the
+// magnitude reaches (ascending factors; falls back to the smallest).
+// Dimensions without a family here render nothing (silent), unless the user
+// converts explicitly with `in`.
+const DISPLAY_FAMILIES = new Map<string, Array<[label: string, factor: number]>>([
+  [dimKey(DATA), [['B', 1], ['kB', 1e3], ['MB', 1e6], ['GB', 1e9], ['TB', 1e12]]],
+  [dimKey(TIME), [['ms', 1e-3], ['s', 1], ['min', 60], ['h', 3600], ['d', 86400]]],
+  [dimKey(ENERGY), [['J', 1], ['kJ', 1e3], ['MJ', 1e6], ['GJ', 1e9]]],
+  [dimKey(POWER), [['mW', 1e-3], ['W', 1], ['kW', 1e3], ['MW', 1e6], ['GW', 1e9]]],
+  [dimKey(LENGTH), [['mm', 1e-3], ['m', 1], ['km', 1e3]]],
+  [dimKey(MASS), [['mg', 1e-3], ['g', 1], ['kg', 1e3]]],
+  [dimKey(FREQUENCY), [['Hz', 1], ['kHz', 1e3], ['MHz', 1e6], ['GHz', 1e9]]],
+  [dimKey(dim({ data: 1, time: -1 })), [['B/s', 1], ['kB/s', 1e3], ['MB/s', 1e6], ['GB/s', 1e9], ['TB/s', 1e12]]],
+  [dimKey(dim({ length: 1, time: -1 })), [['m/s', 1]]],
+]);
 
 // --- Tokenizer ---------------------------------------------------------------
 
@@ -58,9 +203,9 @@ const OP_NORMALIZE: Record<string, OpChar> = {
   '=': '=',
 };
 
-// Suffixes are only recognized when not followed by an identifier character
-// (so `8km` and `8k2` fall through to a parse error). Lowercase m/g/t are
-// deliberately rejected: they read as milli/grams/tonnes in prose.
+// Bare scale suffixes (`8k`, `32G`) apply only when the next char is not an
+// identifier char — `8kB` falls through to the ident lexer and becomes a
+// unit. Lowercase m/g/t are never scale suffixes (milli/grams/tonnes prose).
 const SUFFIX_MULTIPLIER: Record<string, number> = {
   k: 1e3,
   K: 1e3,
@@ -71,7 +216,9 @@ const SUFFIX_MULTIPLIER: Record<string, number> = {
 
 const IDENT_START = /[A-Za-z_]/;
 const IDENT_CHAR = /[A-Za-z0-9_]/;
-const NUMBER_RE = /^(?:\d+(?:\.\d+)?|\.\d+)/;
+const HEX_RE = /^0[xX][0-9a-fA-F]+/;
+const BIN_RE = /^0[bB][01]+/;
+const DIGIT_RE = /[0-9]/;
 
 /**
  * Tokenize expression text. Token positions are offset by `base` so they map
@@ -87,10 +234,43 @@ function tokenize(text: string, base: number): Token[] | null {
       i++;
       continue;
     }
-    const numMatch = NUMBER_RE.exec(text.slice(i));
-    if (numMatch) {
-      let end = i + numMatch[0].length;
-      let value = Number(numMatch[0]);
+    if (DIGIT_RE.test(ch) || (ch === '.' && i + 1 < text.length && DIGIT_RE.test(text[i + 1]))) {
+      const rest = text.slice(i);
+      const radixMatch = HEX_RE.exec(rest) ?? BIN_RE.exec(rest);
+      if (radixMatch) {
+        tokens.push({
+          type: 'num',
+          value: Number(radixMatch[0]),
+          from: base + i,
+          to: base + i + radixMatch[0].length,
+        });
+        i += radixMatch[0].length;
+        continue;
+      }
+      let end = i;
+      let digits: string;
+      if (ch === '.') {
+        const fracMatch = /^\.\d+/.exec(rest)!;
+        digits = fracMatch[0];
+        end += fracMatch[0].length;
+      } else {
+        const intMatch = /^\d+/.exec(rest)!;
+        digits = intMatch[0];
+        end += intMatch[0].length;
+        // Thousands-separated input: merge ` ddd` groups (single space,
+        // exactly three digits, not followed by a fourth).
+        let group;
+        while (text[end] === ' ' && (group = /^\d{3}(?!\d)/.exec(text.slice(end + 1)))) {
+          digits += group[0];
+          end += 4;
+        }
+        const fracMatch = /^\.\d+/.exec(text.slice(end));
+        if (fracMatch) {
+          digits += fracMatch[0];
+          end += fracMatch[0].length;
+        }
+      }
+      let value = Number(digits);
       const suffix = text[end];
       if (
         suffix !== undefined &&
@@ -126,6 +306,7 @@ function tokenize(text: string, base: number): Token[] | null {
 
 type AstNode =
   | { kind: 'num'; value: number }
+  | { kind: 'quantity'; value: number; dim: Dim }
   | { kind: 'var'; name: string; span: MathSpan }
   | { kind: 'call'; name: string; args: AstNode[] }
   | { kind: 'binary'; op: '+' | '-' | '*' | '/' | '^'; left: AstNode; right: AstNode }
@@ -137,11 +318,18 @@ type AstNode =
   // 100 + (20%) is plain addition of 0.2, not a 20% increase.
   | { kind: 'group'; operand: AstNode };
 
+/** Display override requested with `expr in <target>`. */
+type Conversion =
+  | { type: 'unit'; text: string; factor: number; dim: Dim }
+  | { type: 'radix'; radix: 16 | 2 };
+
 interface FunctionSpec {
   minArity: number;
   maxArity: number;
   apply: (args: number[]) => number;
 }
+
+const DEG = Math.PI / 180;
 
 const FUNCTIONS: Record<string, FunctionSpec> = {
   sqrt: { minArity: 1, maxArity: 1, apply: ([x]) => Math.sqrt(x) },
@@ -151,26 +339,40 @@ const FUNCTIONS: Record<string, FunctionSpec> = {
   ceil: { minArity: 1, maxArity: 1, apply: ([x]) => Math.ceil(x) },
   log2: { minArity: 1, maxArity: 1, apply: ([x]) => Math.log2(x) },
   log10: { minArity: 1, maxArity: 1, apply: ([x]) => Math.log10(x) },
+  ln: { minArity: 1, maxArity: 1, apply: ([x]) => Math.log(x) },
+  exp: { minArity: 1, maxArity: 1, apply: ([x]) => Math.exp(x) },
+  pow: { minArity: 2, maxArity: 2, apply: ([x, y]) => Math.pow(x, y) },
+  // Trig works in degrees — sin(30) = 0.5, like calculator apps.
+  sin: { minArity: 1, maxArity: 1, apply: ([x]) => Math.sin(x * DEG) },
+  cos: { minArity: 1, maxArity: 1, apply: ([x]) => Math.cos(x * DEG) },
+  tan: { minArity: 1, maxArity: 1, apply: ([x]) => Math.tan(x * DEG) },
+  asin: { minArity: 1, maxArity: 1, apply: ([x]) => Math.asin(x) / DEG },
+  acos: { minArity: 1, maxArity: 1, apply: ([x]) => Math.acos(x) / DEG },
+  atan: { minArity: 1, maxArity: 1, apply: ([x]) => Math.atan(x) / DEG },
   min: { minArity: 1, maxArity: Infinity, apply: (args) => Math.min(...args) },
   max: { minArity: 1, maxArity: Infinity, apply: (args) => Math.max(...args) },
 };
 
+type VarNode = Extract<AstNode, { kind: 'var' }>;
+type IdentToken = Extract<Token, { type: 'ident' }>;
+
 /**
  * Recursive-descent parser over a token slice. Grammar (precedence low→high):
  *
- *   expr           := additive
+ *   top            := additive ("in" (unit | "hex" | "bin"))?
  *   additive       := multiplicative (("+"|"-") multiplicative)*   left-assoc
  *   multiplicative := unary (("*"|"/") unary)*                     left-assoc
  *   unary          := ("-"|"+") unary | power
  *   power          := postfix ("^" unary)?                         right-assoc
  *   postfix        := primary "%"?                                 % after number literals only
- *   primary        := NUMBER | IDENT | IDENT "(" expr ("," expr)* ")" | "(" expr ")"
+ *   primary        := NUMBER unit? | IDENT | IDENT "(" args ")" | "(" expr ")"
+ *   unit           := UNIT-IDENT ("/" UNIT-IDENT)?                 attached to the number
+ *                                                                  (≤1 space; rate "/" must be tight)
  *
- * No implicit multiplication: adjacent operands are a parse error.
+ * No implicit multiplication: adjacent operands are a parse error. In unit
+ * position a known unit name wins over any same-named variable, so `6kJ/s`
+ * stays a rate even if `s` is defined.
  */
-type VarNode = Extract<AstNode, { kind: 'var' }>;
-type IdentToken = Extract<Token, { type: 'ident' }>;
-
 class Parser {
   private pos = 0;
   private readonly tokens: readonly Token[];
@@ -180,12 +382,56 @@ class Parser {
     this.tokens = tokens;
   }
 
-  /** Parse the whole token slice as one expression; throws MathError on failure. */
-  parse(): AstNode {
+  /** Parse the whole token slice as one expression with an optional `in` conversion. */
+  parseTop(): { node: AstNode; conversion: Conversion | null } {
     if (this.tokens.length === 0) throw new MathError('empty expression');
     const node = this.parseAdditive();
+    let conversion: Conversion | null = null;
+    const next = this.peek();
+    if (next?.type === 'ident' && next.name === 'in') {
+      this.pos++;
+      conversion = this.parseConversionTarget();
+    }
     if (this.pos !== this.tokens.length) throw new MathError('unexpected trailing tokens');
-    return node;
+    return { node, conversion };
+  }
+
+  private parseConversionTarget(): Conversion {
+    const token = this.peek();
+    if (token?.type !== 'ident') throw new MathError('expected conversion target');
+    this.pos++;
+    if (token.name === 'hex') return { type: 'radix', radix: 16 };
+    if (token.name === 'bin') return { type: 'radix', radix: 2 };
+    const unit = UNITS[token.name];
+    if (unit === undefined) throw new MathError(`unknown unit '${token.name}'`);
+    const divisor = this.tryParseRateDivisor(token.to);
+    if (divisor) {
+      return {
+        type: 'unit',
+        text: `${token.name}/${divisor.name}`,
+        factor: unit.factor / divisor.spec.factor,
+        dim: dimCombine(unit.dim, divisor.spec.dim, -1),
+      };
+    }
+    return { type: 'unit', text: token.name, factor: unit.factor, dim: unit.dim };
+  }
+
+  /** Consume a tight `/unit` (as in `kJ/s`) if present; never consumes on failure. */
+  private tryParseRateDivisor(endOfPrev: number): { name: string; spec: UnitSpec } | null {
+    const slash = this.tokens[this.pos];
+    const unitToken = this.tokens[this.pos + 1];
+    if (
+      slash?.type === 'op' &&
+      slash.op === '/' &&
+      slash.from === endOfPrev &&
+      unitToken?.type === 'ident' &&
+      unitToken.from === slash.to &&
+      UNITS[unitToken.name] !== undefined
+    ) {
+      this.pos += 2;
+      return { name: unitToken.name, spec: UNITS[unitToken.name] };
+    }
+    return null;
   }
 
   private peek(): Token | undefined {
@@ -258,6 +504,24 @@ class Parser {
     if (token === undefined) throw new MathError('unexpected end of expression');
     if (token.type === 'num') {
       this.pos++;
+      const unitToken = this.peek();
+      if (
+        unitToken?.type === 'ident' &&
+        unitToken.from - token.to <= 1 &&
+        UNITS[unitToken.name] !== undefined
+      ) {
+        this.pos++;
+        const unit = UNITS[unitToken.name];
+        const divisor = this.tryParseRateDivisor(unitToken.to);
+        if (divisor) {
+          return {
+            kind: 'quantity',
+            value: (token.value * unit.factor) / divisor.spec.factor,
+            dim: dimCombine(unit.dim, divisor.spec.dim, -1),
+          };
+        }
+        return { kind: 'quantity', value: token.value * unit.factor, dim: unit.dim };
+      }
       return { kind: 'num', value: token.value };
     }
     if (token.type === 'ident') {
@@ -292,19 +556,28 @@ class Parser {
 
 // --- Evaluator ---------------------------------------------------------------
 
-function evalNode(node: AstNode, env: ReadonlyMap<string, number>): number {
+function requireDimless(q: Quantity): number {
+  if (!isDimless(q.dim)) throw new MathError('expected a dimensionless value');
+  return q.value;
+}
+
+function evalNode(node: AstNode, env: ReadonlyMap<string, Quantity>): Quantity {
   switch (node.kind) {
     case 'num':
-      return node.value;
+      return { value: node.value, dim: DIMLESS };
+    case 'quantity':
+      return { value: node.value, dim: node.dim };
     case 'var': {
       const value = env.get(node.name);
       if (value === undefined) throw new MathError(`undefined variable '${node.name}'`);
       return value;
     }
     case 'percent':
-      return evalNode(node.operand, env) / 100;
-    case 'neg':
-      return -evalNode(node.operand, env);
+      return { value: evalNode(node.operand, env).value / 100, dim: DIMLESS };
+    case 'neg': {
+      const operand = evalNode(node.operand, env);
+      return { value: -operand.value, dim: operand.dim };
+    }
     case 'group':
       return evalNode(node.operand, env);
     case 'call': {
@@ -313,7 +586,8 @@ function evalNode(node: AstNode, env: ReadonlyMap<string, number>): number {
       if (node.args.length < fn.minArity || node.args.length > fn.maxArity) {
         throw new MathError(`wrong arity for '${node.name}'`);
       }
-      return fn.apply(node.args.map((arg) => evalNode(arg, env)));
+      const args = node.args.map((arg) => requireDimless(evalNode(arg, env)));
+      return { value: fn.apply(args), dim: DIMLESS };
     }
     case 'binary': {
       const left = evalNode(node.left, env);
@@ -321,29 +595,33 @@ function evalNode(node: AstNode, env: ReadonlyMap<string, number>): number {
       // Only when the right operand is literally a percent node — products,
       // groups, and variables holding percent-derived values stay plain.
       if ((node.op === '+' || node.op === '-') && node.right.kind === 'percent') {
-        const fraction = evalNode(node.right, env);
-        return node.op === '+' ? left * (1 + fraction) : left * (1 - fraction);
+        const fraction = evalNode(node.right, env).value;
+        const scaled = node.op === '+' ? 1 + fraction : 1 - fraction;
+        return { value: left.value * scaled, dim: left.dim };
       }
       const right = evalNode(node.right, env);
       switch (node.op) {
         case '+':
-          return left + right;
-        case '-':
-          return left - right;
+        case '-': {
+          if (!dimEq(left.dim, right.dim)) throw new MathError('mismatched units');
+          const value = node.op === '+' ? left.value + right.value : left.value - right.value;
+          return { value, dim: left.dim };
+        }
         case '*':
-          return left * right;
+          return { value: left.value * right.value, dim: dimCombine(left.dim, right.dim, 1) };
         case '/':
-          return left / right;
+          return { value: left.value / right.value, dim: dimCombine(left.dim, right.dim, -1) };
         case '^':
-          return Math.pow(left, right);
+          return { value: Math.pow(requireDimless(left), requireDimless(right)), dim: DIMLESS };
       }
     }
   }
 }
 
 /**
- * Evaluate a standalone expression string against an environment.
- * Returns null if it doesn't fully parse and evaluate to a finite number.
+ * Evaluate a standalone expression string against an environment of plain
+ * (dimensionless) numbers. Returns the magnitude in base units, or null if
+ * the expression doesn't fully parse and evaluate to a finite number.
  */
 export function evaluateExpression(
   src: string,
@@ -351,9 +629,12 @@ export function evaluateExpression(
 ): number | null {
   const tokens = tokenize(src, 0);
   if (tokens === null || tokens.length === 0) return null;
+  const quantities = new Map<string, Quantity>();
+  for (const [name, value] of env) quantities.set(name, { value, dim: DIMLESS });
   try {
-    const value = evalNode(new Parser(tokens).parse(), env);
-    return Number.isFinite(value) ? value : null;
+    const { node } = new Parser(tokens).parseTop();
+    const result = evalNode(node, quantities);
+    return Number.isFinite(result.value) ? result.value : null;
   } catch (error) {
     if (error instanceof MathError) return null;
     throw error;
@@ -363,9 +644,9 @@ export function evaluateExpression(
 // --- Result formatting -------------------------------------------------------
 
 /**
- * Format a result like the Apple Notes reference: space-grouped thousands
- * (`62 914 560 000`), float noise removed (0.1+0.2 → "0.3"), locale-independent.
- * Extreme magnitudes fall back to JS exponential notation.
+ * Format a plain number like the Apple Notes reference: space-grouped
+ * thousands (`62 914 560 000`), float noise removed (0.1+0.2 → "0.3"),
+ * locale-independent. Extreme magnitudes fall back to JS exponential.
  */
 export function formatResult(value: number): string {
   let v = Number(value.toPrecision(12));
@@ -379,9 +660,44 @@ export function formatResult(value: number): string {
   return (negative ? '-' : '') + grouped + (fracPart !== undefined ? '.' + fracPart : '');
 }
 
+/**
+ * Format a quantity for display, honoring an `in` conversion if given.
+ * Returns null when there is no meaningful rendering (unknown dimension
+ * combination, conversion dimension mismatch, hex/bin of a non-integer).
+ */
+function formatQuantity(q: Quantity, conversion: Conversion | null): string | null {
+  if (conversion?.type === 'radix') {
+    if (!isDimless(q.dim)) return null;
+    const v = Number(q.value.toPrecision(12));
+    if (!Number.isSafeInteger(v)) return null;
+    const digits = Math.abs(v).toString(conversion.radix).toUpperCase();
+    const prefix = conversion.radix === 16 ? '0x' : '0b';
+    return `${v < 0 ? '-' : ''}${prefix}${digits}`;
+  }
+  if (conversion?.type === 'unit') {
+    if (!dimEq(q.dim, conversion.dim)) return null;
+    return `${formatResult(q.value / conversion.factor)} ${conversion.text}`;
+  }
+  if (isDimless(q.dim)) return formatResult(q.value);
+  const family = DISPLAY_FAMILIES.get(dimKey(q.dim));
+  if (family === undefined) return null;
+  const magnitude = Math.abs(q.value);
+  let best = family[0];
+  for (const entry of family) {
+    if (magnitude >= entry[1]) best = entry;
+  }
+  return `${formatResult(q.value / best[1])} ${best[0]}`;
+}
+
 // --- Document analysis -------------------------------------------------------
 
 const LIST_MARKER_RE = /^\s*(?:[-*+]|\d+[.)])\s+/;
+
+/** Built-in constants, seeded into scope; user definitions shadow them. */
+const CONSTANTS: ReadonlyArray<[string, number]> = [
+  ['pi', Math.PI],
+  ['e', Math.E],
+];
 
 /**
  * Analyze a whole note body top-to-bottom with a single variable environment
@@ -393,7 +709,8 @@ const LIST_MARKER_RE = /^\s*(?:[-*+]|\d+[.)])\s+/;
  */
 export function analyzeDocument(lines: readonly string[]): Array<MathLineResult | null> {
   const results: Array<MathLineResult | null> = new Array(lines.length).fill(null);
-  const env = new Map<string, number>();
+  const env = new Map<string, Quantity>();
+  for (const [name, value] of CONSTANTS) env.set(name, { value, dim: DIMLESS });
 
   // Frontmatter: only a leading '---' with a matching closer counts
   // (same semantics as tagPlugin's isInFrontmatter).
@@ -458,27 +775,36 @@ export function analyzeDocument(lines: readonly string[]): Array<MathLineResult 
     }
 
     const parser = new Parser(exprTokens);
-    let value: number;
+    let quantity: Quantity;
+    let conversion: Conversion | null;
     try {
-      value = evalNode(parser.parse(), env);
+      const parsed = parser.parseTop();
+      conversion = parsed.conversion;
+      quantity = evalNode(parsed.node, env);
     } catch (error) {
       if (error instanceof MathError) continue;
       throw error;
     }
-    if (!Number.isFinite(value)) continue;
+    if (!Number.isFinite(quantity.value)) continue;
+
+    const resultText = resultOffset === undefined ? null : formatQuantity(quantity, conversion);
+    // An evaluation request we can't render meaningfully stays inert; a
+    // definition still defines (its dimension may only combine usefully
+    // later), it just shows no ghost result.
+    if (nameToken === undefined && resultText === null) continue;
 
     const result: MathLineResult = {
       kind: nameToken === undefined ? 'evaluation' : 'definition',
       refSpans: parser.varNodes.map((node) => node.span),
-      value,
+      value: quantity.value,
     };
     if (nameToken !== undefined) {
-      env.set(nameToken.name, value);
+      env.set(nameToken.name, quantity);
       result.nameSpan = { from: nameToken.from, to: nameToken.to };
     }
-    if (resultOffset !== undefined) {
+    if (resultText !== null && resultOffset !== undefined) {
       if (nameToken !== undefined) result.kind = 'definition-evaluation';
-      result.resultText = formatResult(value);
+      result.resultText = resultText;
       result.resultOffset = resultOffset;
     }
     results[i] = result;

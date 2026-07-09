@@ -424,13 +424,22 @@ type IdentToken = Extract<Token, { type: 'ident' }>;
  * position a known unit name wins over any same-named variable, so `6kJ/s`
  * stays a rate even if `s` is defined.
  */
+const NO_ALIASES: ReadonlyMap<string, string> = new Map();
+
 class Parser {
   private pos = 0;
   private readonly tokens: readonly Token[];
+  private readonly currencyAliases: ReadonlyMap<string, string>;
   readonly varNodes: VarNode[] = [];
 
-  constructor(tokens: readonly Token[]) {
+  constructor(tokens: readonly Token[], currencyAliases: ReadonlyMap<string, string> = NO_ALIASES) {
     this.tokens = tokens;
+    this.currencyAliases = currencyAliases;
+  }
+
+  /** Apply `$ = USD`-style notation aliases to a currency marker. */
+  private resolveTag(marker: string): string {
+    return this.currencyAliases.get(marker) ?? marker;
   }
 
   /** Parse the whole token slice as one expression with an optional `in` conversion. */
@@ -474,7 +483,7 @@ class Parser {
     const unit = UNITS[name];
     if (unit !== undefined) return { factor: unit.factor, dim: unit.dim, code: null };
     const code = resolveCurrencyCode(name);
-    if (code !== null) return { factor: 1, dim: MONEY, code };
+    if (code !== null) return { factor: 1, dim: MONEY, code: this.resolveTag(code) };
     return null;
   }
 
@@ -636,7 +645,7 @@ class Parser {
     if (token.type === 'cursym') {
       // Prefix symbol form: $320 (optionally $3 Billion).
       this.pos++;
-      return this.parseMoneyAmount(token.code, token.to);
+      return this.parseMoneyAmount(this.resolveTag(token.code), token.to);
     }
     if (token.type === 'ident') {
       // Prefix code form: `kr 320`, `USD 100` — a currency name directly
@@ -645,7 +654,7 @@ class Parser {
       const next = this.tokens[this.pos + 1];
       if (prefixCode !== null && next?.type === 'num' && next.from - token.to <= 1) {
         this.pos++;
-        return this.parseMoneyAmount(prefixCode, token.to);
+        return this.parseMoneyAmount(this.resolveTag(prefixCode), token.to);
       }
       this.pos++;
       if (this.peekOp() === '(') {
@@ -894,6 +903,8 @@ export function analyzeDocument(lines: readonly string[]): Array<MathLineResult 
   const results: Array<MathLineResult | null> = new Array(lines.length).fill(null);
   const env = new Map<string, Quantity>();
   for (const [name, value] of CONSTANTS) env.set(name, { value, dim: DIMLESS, code: null });
+  // `$ = USD`-style notation aliases; scoped top-to-bottom like variables.
+  const currencyAliases = new Map<string, string>();
 
   // Frontmatter: only a leading '---' with a matching closer counts
   // (same semantics as tagPlugin's isInFrontmatter).
@@ -931,6 +942,34 @@ export function analyzeDocument(lines: readonly string[]): Array<MathLineResult 
     const tokens = tokenize(text, base);
     if (tokens === null || tokens.length === 0) continue;
 
+    // `$ = USD` assigns a currency notation: from here down the marker
+    // ($, €, £, ¥, kr) means that ISO code. Overridable further down.
+    if (tokens.length === 3) {
+      const [markerToken, eqToken, codeToken] = tokens;
+      const marker =
+        markerToken.type === 'cursym'
+          ? markerToken.code
+          : markerToken.type === 'ident' && markerToken.name === 'kr'
+            ? 'kr'
+            : null;
+      if (
+        marker !== null &&
+        eqToken.type === 'op' &&
+        eqToken.op === '=' &&
+        codeToken.type === 'ident' &&
+        CURRENCY_CODE_RE.test(codeToken.name)
+      ) {
+        currencyAliases.set(marker, codeToken.name);
+        results[i] = {
+          kind: 'definition',
+          nameSpan: { from: markerToken.from, to: markerToken.to },
+          refSpans: [{ from: codeToken.from, to: codeToken.to }],
+          value: 0,
+        };
+        continue;
+      }
+    }
+
     // Trailing '=' means "show me the result".
     let resultOffset: number | undefined;
     const last = tokens[tokens.length - 1];
@@ -957,7 +996,7 @@ export function analyzeDocument(lines: readonly string[]): Array<MathLineResult 
       continue;
     }
 
-    const parser = new Parser(exprTokens);
+    const parser = new Parser(exprTokens, currencyAliases);
     let quantity: Quantity;
     let conversion: Conversion | null;
     try {

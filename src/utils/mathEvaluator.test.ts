@@ -409,6 +409,37 @@ describe('currency', () => {
     const prelude = ['Price = 3200 NOK / 32GB'];
     expect(analyzeLine('Price in NOK/GB =', prelude)?.resultText).toBe('100 NOK/GB');
   });
+
+  it('assigns notation with alias lines like $ = USD', () => {
+    const results = analyzeDocument(['$ = USD', '$100 + 50 USD =', '$100 =']);
+    expect(results[0]?.kind).toBe('definition');
+    expect(results[1]?.resultText).toBe('150 USD');
+    expect(results[2]?.resultText).toBe('100 USD');
+  });
+
+  it('aliases kr and other symbols', () => {
+    expect(analyzeLine('100 SEK + 50 kr =', ['kr = SEK'])?.resultText).toBe('150 SEK');
+    expect(analyzeLine('¥100 + 100 CNY =', ['¥ = CNY'])?.resultText).toBe('200 CNY');
+    expect(analyzeLine('100 kr in SEK =', ['kr = SEK'])?.resultText).toBe('100 SEK');
+  });
+
+  it('scopes aliases top-to-bottom with override', () => {
+    const results = analyzeDocument([
+      '$1 + 1 USD =',
+      '$ = USD',
+      '$1 + 1 USD =',
+      '$ = CAD',
+      '$1 + 1 CAD =',
+    ]);
+    expect(results[0]).toBeNull();
+    expect(results[2]?.resultText).toBe('2 USD');
+    expect(results[4]?.resultText).toBe('2 CAD');
+  });
+
+  it('does not treat non-marker assignments as aliases', () => {
+    expect(analyzeLine('Deadline = USD')).toBeNull();
+    expect(analyzeLine('NOK = USD')).toBeNull();
+  });
 });
 
 describe('word multipliers', () => {

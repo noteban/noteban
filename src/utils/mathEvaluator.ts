@@ -762,29 +762,6 @@ function evalNode(node: AstNode, env: ReadonlyMap<string, Quantity>): Quantity {
   }
 }
 
-/**
- * Evaluate a standalone expression string against an environment of plain
- * (dimensionless) numbers. Returns the magnitude in base units, or null if
- * the expression doesn't fully parse and evaluate to a finite number.
- */
-export function evaluateExpression(
-  src: string,
-  env: ReadonlyMap<string, number>
-): number | null {
-  const tokens = tokenize(src, 0);
-  if (tokens === null || tokens.length === 0) return null;
-  const quantities = new Map<string, Quantity>();
-  for (const [name, value] of env) quantities.set(name, { value, dim: DIMLESS, code: null });
-  try {
-    const { node } = new Parser(tokens).parseTop();
-    const result = evalNode(node, quantities);
-    return Number.isFinite(result.value) ? result.value : null;
-  } catch (error) {
-    if (error instanceof MathError) return null;
-    throw error;
-  }
-}
-
 // --- Result formatting -------------------------------------------------------
 
 /**
@@ -918,15 +895,21 @@ export function analyzeDocument(lines: readonly string[]): Array<MathLineResult 
     }
   }
 
-  let inFence = false;
+  // Fenced code: both ``` and ~~~ open a fence; only the same delimiter
+  // closes it (a ~~~ line inside a backtick fence is just content).
+  let fence: '```' | '~~~' | null = null;
   for (let i = 0; i < lines.length; i++) {
     if (i <= skipThrough) continue;
     const line = lines[i];
-    if (line.startsWith('```')) {
-      inFence = !inFence;
+    if (fence !== null) {
+      if (line.startsWith(fence)) fence = null;
       continue;
     }
-    if (inFence || line.includes('`')) continue;
+    if (line.startsWith('```') || line.startsWith('~~~')) {
+      fence = line.startsWith('```') ? '```' : '~~~';
+      continue;
+    }
+    if (line.includes('`')) continue;
 
     // Strip one leading list marker so math works inside lists; keep the
     // offset so spans map back to real columns. `- [ ] task` still fails

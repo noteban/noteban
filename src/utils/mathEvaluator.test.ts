@@ -183,6 +183,16 @@ describe('document structure', () => {
     expect(results.every((r) => r === null)).toBe(true);
   });
 
+  it('ignores tilde-fenced code', () => {
+    const results = analyzeDocument(['~~~python', 'x = 5', '~~~', 'x =']);
+    expect(results.every((r) => r === null)).toBe(true);
+  });
+
+  it('does not close a backtick fence with a tilde line', () => {
+    const results = analyzeDocument(['```', '~~~', 'x = 5', '```', 'x =']);
+    expect(results.every((r) => r === null)).toBe(true);
+  });
+
   it('ignores frontmatter', () => {
     const results = analyzeDocument(['---', 'x = 5', '---', 'x =']);
     expect(results.every((r) => r === null)).toBe(true);

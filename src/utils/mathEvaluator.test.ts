@@ -359,6 +359,24 @@ describe('units', () => {
   });
 });
 
+describe('word multipliers', () => {
+  it('folds spelled-out multipliers into the number, case-insensitively', () => {
+    expect(analyzeLine('32 Billion =')?.resultText).toBe('32 000 000 000');
+    expect(analyzeLine('1.5 million =')?.resultText).toBe('1 500 000');
+    expect(analyzeLine('2 Thousand + 1 =')?.resultText).toBe('2 001');
+    expect(valueOf('Params =', ['Params = 32 Billion'])).toBe(32e9);
+  });
+
+  it('composes with units', () => {
+    expect(analyzeLine('3 Million MB =')?.resultText).toBe('3 TB');
+  });
+
+  it('is only a multiplier right after a number', () => {
+    expect(analyzeLine('x = Billion')).toBeNull();
+    expect(analyzeLine('2 Billions =')).toBeNull();
+  });
+});
+
 describe('screenshot scenario', () => {
   it('reproduces the LLM-sizing note', () => {
     const results = analyzeDocument([

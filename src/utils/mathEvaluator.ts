@@ -214,6 +214,17 @@ const SUFFIX_MULTIPLIER: Record<string, number> = {
   T: 1e12,
 };
 
+// Spelled-out multipliers fold into a preceding number literal
+// (`32 Billion` = 3.2e10), case-insensitively, before any unit attaches —
+// so `3 Million MB` is 3 TB.
+const WORD_MULTIPLIERS: Record<string, number> = {
+  hundred: 100,
+  thousand: 1e3,
+  million: 1e6,
+  billion: 1e9,
+  trillion: 1e12,
+};
+
 const IDENT_START = /[A-Za-z_]/;
 const IDENT_CHAR = /[A-Za-z0-9_]/;
 const HEX_RE = /^0[xX][0-9a-fA-F]+/;
@@ -504,10 +515,22 @@ class Parser {
     if (token === undefined) throw new MathError('unexpected end of expression');
     if (token.type === 'num') {
       this.pos++;
+      let value = token.value;
+      let end = token.to;
+      const wordToken = this.peek();
+      if (
+        wordToken?.type === 'ident' &&
+        wordToken.from - end <= 1 &&
+        WORD_MULTIPLIERS[wordToken.name.toLowerCase()] !== undefined
+      ) {
+        this.pos++;
+        value *= WORD_MULTIPLIERS[wordToken.name.toLowerCase()];
+        end = wordToken.to;
+      }
       const unitToken = this.peek();
       if (
         unitToken?.type === 'ident' &&
-        unitToken.from - token.to <= 1 &&
+        unitToken.from - end <= 1 &&
         UNITS[unitToken.name] !== undefined
       ) {
         this.pos++;
@@ -516,13 +539,13 @@ class Parser {
         if (divisor) {
           return {
             kind: 'quantity',
-            value: (token.value * unit.factor) / divisor.spec.factor,
+            value: (value * unit.factor) / divisor.spec.factor,
             dim: dimCombine(unit.dim, divisor.spec.dim, -1),
           };
         }
-        return { kind: 'quantity', value: token.value * unit.factor, dim: unit.dim };
+        return { kind: 'quantity', value: value * unit.factor, dim: unit.dim };
       }
-      return { kind: 'num', value: token.value };
+      return { kind: 'num', value };
     }
     if (token.type === 'ident') {
       this.pos++;

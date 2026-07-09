@@ -10,6 +10,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
+    "test": "vitest run",
     "preview": "vite preview",
     "tauri": "tauri",
     "ios:init": "tauri ios init",
@@ -56,6 +57,7 @@
     "globals": "^17.4.0",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^8.0.16"
+    "vite": "^8.0.16",
+    "vitest": "^4.1.9"
   }
 }

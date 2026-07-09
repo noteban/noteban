@@ -203,7 +203,6 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
   // CodeMirror extension array on every keystroke — activeNote identity
   // changes whenever notes content updates, but extensions only need to
   // change when the underlying file path does.
-  // eslint-disable-next-line react-hooks/preserve-manual-memoization
   const extensions: Extension[] = useMemo(() => {
     const exts: Extension[] = [
       listContinuationKeymap,

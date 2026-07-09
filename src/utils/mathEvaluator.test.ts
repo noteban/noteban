@@ -375,6 +375,22 @@ describe('word multipliers', () => {
     expect(analyzeLine('x = Billion')).toBeNull();
     expect(analyzeLine('2 Billions =')).toBeNull();
   });
+
+  it('always reads B as bytes', () => {
+    expect(analyzeLine('32B =')?.resultText).toBe('32 B');
+    expect(analyzeLine('32 B =')?.resultText).toBe('32 B');
+    expect(analyzeLine('4b =')?.resultText).toBe('0.5 B');
+    expect(analyzeLine('500B/s =')?.resultText).toBe('500 B/s');
+  });
+
+  it('handles the LLM-sizing scenario with word multipliers and bits', () => {
+    const result = analyzeLine('ModelSize = Params × BytesPerParam + 20% =', [
+      'Params = 32 Billion',
+      'BytesPerParam = 4b',
+    ]);
+    expect(result?.kind).toBe('definition-evaluation');
+    expect(result?.resultText).toBe('19.2 GB');
+  });
 });
 
 describe('screenshot scenario', () => {

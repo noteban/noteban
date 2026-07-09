@@ -30,7 +30,7 @@ transfer / 2s =          → 4.1 MB/s
 - **Functions** — `sqrt`, `abs`, `round`, `floor`, `ceil`, `ln`, `log2`, `log10`, `exp`, `pow`, `min`, `max`, and `sin` / `cos` / `tan` / `asin` / `acos` / `atan` (in degrees).
 - **Units** — data (`kB`–`TB`, `KiB`, bits), time (`ms`–`d`), length, mass, energy, power, frequency, and rates like `MB/s`. Convert with `in`: `90min in h =`.
 - **Currencies** — `$ € £ ¥ kr` and ISO codes (`100 NOK + 50 NOK =`). No exchange rates — currencies must match. `$ = USD` pins what a symbol means.
-- **Number formats** — hex and binary in and out (`0xFF =`, `255 in hex =`), scale suffixes (`8k`, `32G`), and spelled-out multipliers (`3 million`).
+- **Number formats** — hex and binary in and out (`0xFF =` and `0b1010 =` as input, `255 in hex =` and `10 in bin =` to convert), scale suffixes (`8k`, `32G`), and spelled-out multipliers (`3 million`).
 
 Math is skipped in code blocks and frontmatter, and anything after `#` on a line is ignored.
 

@@ -12,6 +12,7 @@ import { useNotesStore, useSettingsStore, useUIStore } from '../../stores';
 import { useDebounce } from '../../hooks/useDebounce';
 import { checkboxPlugin, checkboxTheme } from './checkboxPlugin';
 import { tagPlugin, tagTheme } from './tagPlugin';
+import { mathPlugin, mathTheme } from './mathPlugin';
 import { tagAutocomplete } from './tagAutocompletePlugin';
 import { linkPlugin, linkTheme, modifierClassPlugin, linkClickHandler } from './linkPlugin';
 import { imagePlugin } from './imagePlugin';
@@ -214,6 +215,8 @@ export function MarkdownEditor({ className }: MarkdownEditorProps) {
       checkboxTheme,
       tagPlugin,
       tagTheme,
+      mathPlugin,
+      mathTheme,
       tagAutocomplete(tagsByFrequency),
       linkPlugin,
       modifierClassPlugin,

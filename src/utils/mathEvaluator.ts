@@ -46,14 +46,18 @@ interface Dim {
   energy: number;
   length: number;
   mass: number;
+  currency: number;
 }
 
 interface Quantity {
   value: number;
   dim: Dim;
+  /** ISO currency code; non-null iff dim.currency ≠ 0. There are no exchange
+   * rates — mixing codes is a silent error, same-code ratios cancel. */
+  code: string | null;
 }
 
-const DIMLESS: Dim = { data: 0, time: 0, energy: 0, length: 0, mass: 0 };
+const DIMLESS: Dim = { data: 0, time: 0, energy: 0, length: 0, mass: 0, currency: 0 };
 
 function dim(partial: Partial<Dim>): Dim {
   return { ...DIMLESS, ...partial };
@@ -66,6 +70,7 @@ function dimCombine(a: Dim, b: Dim, sign: 1 | -1): Dim {
     energy: a.energy + sign * b.energy,
     length: a.length + sign * b.length,
     mass: a.mass + sign * b.mass,
+    currency: a.currency + sign * b.currency,
   };
 }
 
@@ -75,7 +80,8 @@ function dimEq(a: Dim, b: Dim): boolean {
     a.time === b.time &&
     a.energy === b.energy &&
     a.length === b.length &&
-    a.mass === b.mass
+    a.mass === b.mass &&
+    a.currency === b.currency
   );
 }
 
@@ -84,7 +90,17 @@ function isDimless(d: Dim): boolean {
 }
 
 function dimKey(d: Dim): string {
-  return `${d.data},${d.time},${d.energy},${d.length},${d.mass}`;
+  return `${d.data},${d.time},${d.energy},${d.length},${d.mass},${d.currency}`;
+}
+
+/** Quantity constructor that keeps the code↔currency-exponent invariant. */
+function qty(value: number, dimension: Dim, code: string | null): Quantity {
+  return { value, dim: dimension, code: dimension.currency === 0 ? null : code };
+}
+
+function unifyCodes(a: string | null, b: string | null): string | null {
+  if (a !== null && b !== null && a !== b) throw new MathError('mixed currencies');
+  return a ?? b;
 }
 
 // --- Unit tables --------------------------------------------------------------
@@ -102,6 +118,23 @@ const POWER = dim({ energy: 1, time: -1 });
 const LENGTH = dim({ length: 1 });
 const MASS = dim({ mass: 1 });
 const FREQUENCY = dim({ time: -1 });
+const MONEY = dim({ currency: 1 });
+
+// Currencies attach after a number like units (`3200 NOK`, `320kr`), as a
+// word prefix (`kr 320`, `USD 100`), or as a symbol prefix (`$320`, `€50`).
+// The marker AS TYPED is the currency tag: $ only matches $, kr only kr,
+// NOK only NOK — a $ is not assumed to be USD, and there are no exchange
+// rates, so mixing tags is a silent error while same-tag ratios cancel.
+// Accepted markers: any ISO-4217-shaped code (three uppercase letters),
+// `kr`, and the symbols below.
+const CURRENCY_CODE_RE = /^[A-Z]{3}$/;
+
+function resolveCurrencyCode(name: string): string | null {
+  if (name === 'kr') return 'kr';
+  return CURRENCY_CODE_RE.test(name) ? name : null;
+}
+
+const CURRENCY_SYMBOLS = new Set(['$', '€', '£', '¥']);
 
 // Flat table (no prefix parsing) so collisions stay explicit — e.g. `ms` is
 // milliseconds, never meter·something; `min` is minutes here but still the
@@ -182,6 +215,7 @@ type OpChar = '+' | '-' | '*' | '/' | '^' | '%' | '(' | ')' | ',' | '=';
 type Token =
   | { type: 'num'; value: number; from: number; to: number }
   | { type: 'ident'; name: string; from: number; to: number }
+  | { type: 'cursym'; code: string; from: number; to: number }
   | { type: 'op'; op: OpChar; from: number; to: number };
 
 class MathError extends Error {}
@@ -308,6 +342,11 @@ function tokenize(text: string, base: number): Token[] | null {
       i++;
       continue;
     }
+    if (CURRENCY_SYMBOLS.has(ch)) {
+      tokens.push({ type: 'cursym', code: ch, from: base + i, to: base + i + 1 });
+      i++;
+      continue;
+    }
     return null;
   }
   return tokens;
@@ -317,7 +356,7 @@ function tokenize(text: string, base: number): Token[] | null {
 
 type AstNode =
   | { kind: 'num'; value: number }
-  | { kind: 'quantity'; value: number; dim: Dim }
+  | { kind: 'quantity'; value: number; dim: Dim; code: string | null }
   | { kind: 'var'; name: string; span: MathSpan }
   | { kind: 'call'; name: string; args: AstNode[] }
   | { kind: 'binary'; op: '+' | '-' | '*' | '/' | '^'; left: AstNode; right: AstNode }
@@ -331,7 +370,7 @@ type AstNode =
 
 /** Display override requested with `expr in <target>`. */
 type Conversion =
-  | { type: 'unit'; text: string; factor: number; dim: Dim }
+  | { type: 'unit'; text: string; factor: number; dim: Dim; code: string | null }
   | { type: 'radix'; radix: 16 | 2 };
 
 interface FunctionSpec {
@@ -376,8 +415,9 @@ type IdentToken = Extract<Token, { type: 'ident' }>;
  *   unary          := ("-"|"+") unary | power
  *   power          := postfix ("^" unary)?                         right-assoc
  *   postfix        := primary "%"?                                 % after number literals only
- *   primary        := NUMBER unit? | IDENT | IDENT "(" args ")" | "(" expr ")"
- *   unit           := UNIT-IDENT ("/" UNIT-IDENT)?                 attached to the number
+ *   primary        := NUMBER word-mult? unit? | CURRENCY-SYMBOL NUMBER word-mult?
+ *                   | IDENT | IDENT "(" args ")" | "(" expr ")"
+ *   unit           := (UNIT | CURRENCY) ("/" (UNIT | CURRENCY))?   attached to the number
  *                                                                  (≤1 space; rate "/" must be tight)
  *
  * No implicit multiplication: adjacent operands are a parse error. In unit
@@ -413,22 +453,35 @@ class Parser {
     this.pos++;
     if (token.name === 'hex') return { type: 'radix', radix: 16 };
     if (token.name === 'bin') return { type: 'radix', radix: 2 };
-    const unit = UNITS[token.name];
-    if (unit === undefined) throw new MathError(`unknown unit '${token.name}'`);
+    const base = this.resolveUnitOrCurrency(token.name);
+    if (base === null) throw new MathError(`unknown unit '${token.name}'`);
     const divisor = this.tryParseRateDivisor(token.to);
     if (divisor) {
       return {
         type: 'unit',
         text: `${token.name}/${divisor.name}`,
-        factor: unit.factor / divisor.spec.factor,
-        dim: dimCombine(unit.dim, divisor.spec.dim, -1),
+        factor: base.factor / divisor.factor,
+        dim: dimCombine(base.dim, divisor.dim, -1),
+        code: unifyCodes(base.code, divisor.code),
       };
     }
-    return { type: 'unit', text: token.name, factor: unit.factor, dim: unit.dim };
+    return { type: 'unit', text: token.name, factor: base.factor, dim: base.dim, code: base.code };
   }
 
-  /** Consume a tight `/unit` (as in `kJ/s`) if present; never consumes on failure. */
-  private tryParseRateDivisor(endOfPrev: number): { name: string; spec: UnitSpec } | null {
+  private resolveUnitOrCurrency(
+    name: string
+  ): { factor: number; dim: Dim; code: string | null } | null {
+    const unit = UNITS[name];
+    if (unit !== undefined) return { factor: unit.factor, dim: unit.dim, code: null };
+    const code = resolveCurrencyCode(name);
+    if (code !== null) return { factor: 1, dim: MONEY, code };
+    return null;
+  }
+
+  /** Consume a tight `/unit` (as in `kJ/s` or `GB/NOK`) if present; never consumes on failure. */
+  private tryParseRateDivisor(
+    endOfPrev: number
+  ): { name: string; factor: number; dim: Dim; code: string | null } | null {
     const slash = this.tokens[this.pos];
     const unitToken = this.tokens[this.pos + 1];
     if (
@@ -436,13 +489,46 @@ class Parser {
       slash.op === '/' &&
       slash.from === endOfPrev &&
       unitToken?.type === 'ident' &&
-      unitToken.from === slash.to &&
-      UNITS[unitToken.name] !== undefined
+      unitToken.from === slash.to
     ) {
-      this.pos += 2;
-      return { name: unitToken.name, spec: UNITS[unitToken.name] };
+      const resolved = this.resolveUnitOrCurrency(unitToken.name);
+      if (resolved !== null) {
+        this.pos += 2;
+        return { name: unitToken.name, ...resolved };
+      }
     }
     return null;
+  }
+
+  /** Consume `NUMBER word-mult? ("/" unit)?` after a currency prefix ($, kr, USD). */
+  private parseMoneyAmount(code: string, endOfPrefix: number): AstNode {
+    const numToken = this.peek();
+    if (numToken?.type !== 'num' || numToken.from - endOfPrefix > 1) {
+      throw new MathError(`expected a number after '${code}'`);
+    }
+    this.pos++;
+    let value = numToken.value;
+    let end = numToken.to;
+    const wordToken = this.peek();
+    if (
+      wordToken?.type === 'ident' &&
+      wordToken.from - end <= 1 &&
+      WORD_MULTIPLIERS[wordToken.name.toLowerCase()] !== undefined
+    ) {
+      this.pos++;
+      value *= WORD_MULTIPLIERS[wordToken.name.toLowerCase()];
+      end = wordToken.to;
+    }
+    const divisor = this.tryParseRateDivisor(end);
+    if (divisor) {
+      return {
+        kind: 'quantity',
+        value: value / divisor.factor,
+        dim: dimCombine(MONEY, divisor.dim, -1),
+        code: unifyCodes(code, divisor.code),
+      };
+    }
+    return { kind: 'quantity', value, dim: MONEY, code };
   }
 
   private peek(): Token | undefined {
@@ -528,26 +614,39 @@ class Parser {
         end = wordToken.to;
       }
       const unitToken = this.peek();
-      if (
-        unitToken?.type === 'ident' &&
-        unitToken.from - end <= 1 &&
-        UNITS[unitToken.name] !== undefined
-      ) {
+      const attached =
+        unitToken?.type === 'ident' && unitToken.from - end <= 1
+          ? this.resolveUnitOrCurrency(unitToken.name)
+          : null;
+      if (attached !== null && unitToken?.type === 'ident') {
         this.pos++;
-        const unit = UNITS[unitToken.name];
         const divisor = this.tryParseRateDivisor(unitToken.to);
         if (divisor) {
           return {
             kind: 'quantity',
-            value: (value * unit.factor) / divisor.spec.factor,
-            dim: dimCombine(unit.dim, divisor.spec.dim, -1),
+            value: (value * attached.factor) / divisor.factor,
+            dim: dimCombine(attached.dim, divisor.dim, -1),
+            code: unifyCodes(attached.code, divisor.code),
           };
         }
-        return { kind: 'quantity', value: value * unit.factor, dim: unit.dim };
+        return { kind: 'quantity', value: value * attached.factor, dim: attached.dim, code: attached.code };
       }
       return { kind: 'num', value };
     }
+    if (token.type === 'cursym') {
+      // Prefix symbol form: $320 (optionally $3 Billion).
+      this.pos++;
+      return this.parseMoneyAmount(token.code, token.to);
+    }
     if (token.type === 'ident') {
+      // Prefix code form: `kr 320`, `USD 100` — a currency name directly
+      // before a number wins over a same-named variable, like unit position.
+      const prefixCode = resolveCurrencyCode(token.name);
+      const next = this.tokens[this.pos + 1];
+      if (prefixCode !== null && next?.type === 'num' && next.from - token.to <= 1) {
+        this.pos++;
+        return this.parseMoneyAmount(prefixCode, token.to);
+      }
       this.pos++;
       if (this.peekOp() === '(') {
         this.pos++;
@@ -587,19 +686,19 @@ function requireDimless(q: Quantity): number {
 function evalNode(node: AstNode, env: ReadonlyMap<string, Quantity>): Quantity {
   switch (node.kind) {
     case 'num':
-      return { value: node.value, dim: DIMLESS };
+      return { value: node.value, dim: DIMLESS, code: null };
     case 'quantity':
-      return { value: node.value, dim: node.dim };
+      return { value: node.value, dim: node.dim, code: node.code };
     case 'var': {
       const value = env.get(node.name);
       if (value === undefined) throw new MathError(`undefined variable '${node.name}'`);
       return value;
     }
     case 'percent':
-      return { value: evalNode(node.operand, env).value / 100, dim: DIMLESS };
+      return { value: evalNode(node.operand, env).value / 100, dim: DIMLESS, code: null };
     case 'neg': {
       const operand = evalNode(node.operand, env);
-      return { value: -operand.value, dim: operand.dim };
+      return { value: -operand.value, dim: operand.dim, code: operand.code };
     }
     case 'group':
       return evalNode(node.operand, env);
@@ -610,7 +709,7 @@ function evalNode(node: AstNode, env: ReadonlyMap<string, Quantity>): Quantity {
         throw new MathError(`wrong arity for '${node.name}'`);
       }
       const args = node.args.map((arg) => requireDimless(evalNode(arg, env)));
-      return { value: fn.apply(args), dim: DIMLESS };
+      return { value: fn.apply(args), dim: DIMLESS, code: null };
     }
     case 'binary': {
       const left = evalNode(node.left, env);
@@ -620,22 +719,35 @@ function evalNode(node: AstNode, env: ReadonlyMap<string, Quantity>): Quantity {
       if ((node.op === '+' || node.op === '-') && node.right.kind === 'percent') {
         const fraction = evalNode(node.right, env).value;
         const scaled = node.op === '+' ? 1 + fraction : 1 - fraction;
-        return { value: left.value * scaled, dim: left.dim };
+        return { value: left.value * scaled, dim: left.dim, code: left.code };
       }
       const right = evalNode(node.right, env);
       switch (node.op) {
         case '+':
         case '-': {
           if (!dimEq(left.dim, right.dim)) throw new MathError('mismatched units');
+          const code = unifyCodes(left.code, right.code);
           const value = node.op === '+' ? left.value + right.value : left.value - right.value;
-          return { value, dim: left.dim };
+          return { value, dim: left.dim, code };
         }
         case '*':
-          return { value: left.value * right.value, dim: dimCombine(left.dim, right.dim, 1) };
+          return qty(
+            left.value * right.value,
+            dimCombine(left.dim, right.dim, 1),
+            unifyCodes(left.code, right.code)
+          );
         case '/':
-          return { value: left.value / right.value, dim: dimCombine(left.dim, right.dim, -1) };
+          return qty(
+            left.value / right.value,
+            dimCombine(left.dim, right.dim, -1),
+            unifyCodes(left.code, right.code)
+          );
         case '^':
-          return { value: Math.pow(requireDimless(left), requireDimless(right)), dim: DIMLESS };
+          return {
+            value: Math.pow(requireDimless(left), requireDimless(right)),
+            dim: DIMLESS,
+            code: null,
+          };
       }
     }
   }
@@ -653,7 +765,7 @@ export function evaluateExpression(
   const tokens = tokenize(src, 0);
   if (tokens === null || tokens.length === 0) return null;
   const quantities = new Map<string, Quantity>();
-  for (const [name, value] of env) quantities.set(name, { value, dim: DIMLESS });
+  for (const [name, value] of env) quantities.set(name, { value, dim: DIMLESS, code: null });
   try {
     const { node } = new Parser(tokens).parseTop();
     const result = evalNode(node, quantities);
@@ -683,10 +795,33 @@ export function formatResult(value: number): string {
   return (negative ? '-' : '') + grouped + (fracPart !== undefined ? '.' + fracPart : '');
 }
 
+/** Money renders like its marker was typed: symbols prefix (`$320`, `-$5`),
+ * word markers suffix (`320 kr`, `320 USD`). */
+function formatMoney(value: number, tag: string): string {
+  if (CURRENCY_SYMBOLS.has(tag)) {
+    return `${value < 0 ? '-' : ''}${tag}${formatResult(Math.abs(value))}`;
+  }
+  return `${formatResult(value)} ${tag}`;
+}
+
+/** Largest unit the magnitude reaches (`8 200 000` data → MB). */
+function pickByMagnitude(
+  family: ReadonlyArray<[label: string, factor: number]>,
+  value: number
+): [label: string, factor: number] {
+  const magnitude = Math.abs(value);
+  let best = family[0];
+  for (const entry of family) {
+    if (magnitude >= entry[1]) best = entry;
+  }
+  return best;
+}
+
 /**
  * Format a quantity for display, honoring an `in` conversion if given.
  * Returns null when there is no meaningful rendering (unknown dimension
- * combination, conversion dimension mismatch, hex/bin of a non-integer).
+ * combination, conversion dimension or currency mismatch, hex/bin of a
+ * non-integer).
  */
 function formatQuantity(q: Quantity, conversion: Conversion | null): string | null {
   if (conversion?.type === 'radix') {
@@ -699,17 +834,42 @@ function formatQuantity(q: Quantity, conversion: Conversion | null): string | nu
   }
   if (conversion?.type === 'unit') {
     if (!dimEq(q.dim, conversion.dim)) return null;
+    try {
+      unifyCodes(q.code, conversion.code);
+    } catch {
+      return null;
+    }
     return `${formatResult(q.value / conversion.factor)} ${conversion.text}`;
   }
   if (isDimless(q.dim)) return formatResult(q.value);
-  const family = DISPLAY_FAMILIES.get(dimKey(q.dim));
-  if (family === undefined) return null;
-  const magnitude = Math.abs(q.value);
-  let best = family[0];
-  for (const entry of family) {
-    if (magnitude >= entry[1]) best = entry;
+  if (q.dim.currency === 0) {
+    const family = DISPLAY_FAMILIES.get(dimKey(q.dim));
+    if (family === undefined) return null;
+    const best = pickByMagnitude(family, q.value);
+    return `${formatResult(q.value / best[1])} ${best[0]}`;
   }
-  return `${formatResult(q.value / best[1])} ${best[0]}`;
+  const residual = { ...q.dim, currency: 0 };
+  if (q.dim.currency === 1) {
+    // Plain money, rendered like the marker was typed: `$320`, `320 kr`.
+    if (isDimless(residual)) return formatMoney(q.value, q.code!);
+    // Price per something: scale the denominator so the number reads well —
+    // 1e-7 NOK per byte becomes `100 NOK/GB`.
+    const family = DISPLAY_FAMILIES.get(dimKey(dimCombine(DIMLESS, residual, -1)));
+    if (family === undefined) return null;
+    let best = family[0];
+    for (const entry of family) {
+      if (Math.abs(q.value) * entry[1] < 1000) best = entry;
+    }
+    return `${formatMoney(q.value * best[1], q.code!)}/${best[0]}`;
+  }
+  if (q.dim.currency === -1) {
+    // Something per money: `32GB / 3200 NOK` becomes `10 MB/NOK`.
+    const family = DISPLAY_FAMILIES.get(dimKey(residual));
+    if (family === undefined) return null;
+    const best = pickByMagnitude(family, q.value);
+    return `${formatResult(q.value / best[1])} ${best[0]}/${q.code}`;
+  }
+  return null;
 }
 
 // --- Document analysis -------------------------------------------------------
@@ -733,7 +893,7 @@ const CONSTANTS: ReadonlyArray<[string, number]> = [
 export function analyzeDocument(lines: readonly string[]): Array<MathLineResult | null> {
   const results: Array<MathLineResult | null> = new Array(lines.length).fill(null);
   const env = new Map<string, Quantity>();
-  for (const [name, value] of CONSTANTS) env.set(name, { value, dim: DIMLESS });
+  for (const [name, value] of CONSTANTS) env.set(name, { value, dim: DIMLESS, code: null });
 
   // Frontmatter: only a leading '---' with a matching closer counts
   // (same semantics as tagPlugin's isInFrontmatter).

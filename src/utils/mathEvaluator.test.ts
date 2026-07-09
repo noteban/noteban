@@ -359,6 +359,58 @@ describe('units', () => {
   });
 });
 
+describe('currency', () => {
+  it('renders money with the marker as typed', () => {
+    expect(analyzeLine('320 USD =')?.resultText).toBe('320 USD');
+    expect(analyzeLine('$320 =')?.resultText).toBe('$320');
+    expect(analyzeLine('€50 + €25 =')?.resultText).toBe('€75');
+    expect(analyzeLine('320kr =')?.resultText).toBe('320 kr');
+    expect(analyzeLine('100 NOK + 50 NOK =')?.resultText).toBe('150 NOK');
+    expect(analyzeLine('320 USD + 25% =')?.resultText).toBe('400 USD');
+    expect(analyzeLine('640 NOK / 320 NOK =')?.resultText).toBe('2');
+  });
+
+  it('accepts any three-uppercase-letter code', () => {
+    expect(analyzeLine('99 ISK =')?.resultText).toBe('99 ISK');
+    expect(analyzeLine('5 Nok =')).toBeNull();
+  });
+
+  it('accepts currency prefixes', () => {
+    expect(analyzeLine('kr 320 =')?.resultText).toBe('320 kr');
+    expect(analyzeLine('kr320 =')).toBeNull(); // lexes as one identifier — prefix needs the space
+    expect(analyzeLine('USD 100 =')?.resultText).toBe('100 USD');
+    expect(analyzeLine('kr 100/h =')?.resultText).toBe('100 kr/h');
+    expect(analyzeLine('kr 320 + kr 80 =')?.resultText).toBe('400 kr');
+  });
+
+  it('computes data per money and money per data', () => {
+    expect(analyzeLine('32GB / 3200 NOK =')?.resultText).toBe('10 MB/NOK');
+    expect(analyzeLine('32GB / 320 USD =')?.resultText).toBe('100 MB/USD');
+    expect(analyzeLine('32GB / $320 =')?.resultText).toBe('100 MB/$');
+    expect(analyzeLine('3200 NOK / 32GB =')?.resultText).toBe('100 NOK/GB');
+  });
+
+  it('handles money rates over time', () => {
+    expect(analyzeLine('$100/h =')?.resultText).toBe('$100/h');
+    expect(analyzeLine('$100/h × 8h =')?.resultText).toBe('$800');
+    expect(analyzeLine('-$5 =')?.resultText).toBe('-$5');
+  });
+
+  it('matches markers strictly — $ is $, kr is kr', () => {
+    expect(analyzeLine('1 USD + 1 NOK =')).toBeNull();
+    expect(analyzeLine('$1 + 1 USD =')).toBeNull();
+    expect(analyzeLine('100 SEK + 50 kr =')).toBeNull();
+    expect(analyzeLine('$50 + €50 =')).toBeNull();
+    expect(analyzeLine('100 USD in NOK =')).toBeNull();
+    expect(analyzeLine('5 NOK/EUR =')).toBeNull();
+  });
+
+  it('converts within the same currency', () => {
+    const prelude = ['Price = 3200 NOK / 32GB'];
+    expect(analyzeLine('Price in NOK/GB =', prelude)?.resultText).toBe('100 NOK/GB');
+  });
+});
+
 describe('word multipliers', () => {
   it('folds spelled-out multipliers into the number, case-insensitively', () => {
     expect(analyzeLine('32 Billion =')?.resultText).toBe('32 000 000 000');

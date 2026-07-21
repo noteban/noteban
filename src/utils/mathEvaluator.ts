@@ -8,10 +8,15 @@
 // Values are quantities: a magnitude plus a dimension vector, so unit math
 // works dimensionally — `6kJ/s =` shows `6 kW`, `8MB / 2s =` shows `4 MB/s`,
 // and `8MB + 2s` is a silent error. Also supported: thousands-separated
-// input (`16 000 000 000`), hex/bin literals (0xFF, 0b1010), `in`
-// conversions (`8MB in KiB =`, `255 in hex =`), percentages, k/M/G/T scale
-// suffixes on bare numbers, functions (trig in degrees), and the constants
-// pi and e (shadowable by user definitions).
+// input (`16 000 000 000`), hex/bin literals (0xFF, 0b1010), `in`/`to`
+// conversions (`8MB in KiB =`, `100 psi to bar =`, `255 in hex =`),
+// percentages, k/M/G/T scale suffixes on bare numbers, functions (trig in
+// degrees), and the constants pi and e (shadowable by user definitions).
+//
+// Unit coverage spans data, time, energy/power, pressure, length (metric and
+// imperial), mass, volume, frequency, speed, and currencies. Temperature is
+// deliberately absent: °C/°F conversions are affine (offset, not factor) and
+// don't fit the multiplicative quantity model.
 //
 // Pure module: no CodeMirror, DOM, or Tauri imports. The editor integration
 // lives in src/components/editor/mathPlugin.ts.
@@ -46,6 +51,7 @@ interface Dim {
   energy: number;
   length: number;
   mass: number;
+  pressure: number;
   currency: number;
 }
 
@@ -57,7 +63,7 @@ interface Quantity {
   code: string | null;
 }
 
-const DIMLESS: Dim = { data: 0, time: 0, energy: 0, length: 0, mass: 0, currency: 0 };
+const DIMLESS: Dim = { data: 0, time: 0, energy: 0, length: 0, mass: 0, pressure: 0, currency: 0 };
 
 function dim(partial: Partial<Dim>): Dim {
   return { ...DIMLESS, ...partial };
@@ -70,6 +76,7 @@ function dimCombine(a: Dim, b: Dim, sign: 1 | -1): Dim {
     energy: a.energy + sign * b.energy,
     length: a.length + sign * b.length,
     mass: a.mass + sign * b.mass,
+    pressure: a.pressure + sign * b.pressure,
     currency: a.currency + sign * b.currency,
   };
 }
@@ -81,6 +88,7 @@ function dimEq(a: Dim, b: Dim): boolean {
     a.energy === b.energy &&
     a.length === b.length &&
     a.mass === b.mass &&
+    a.pressure === b.pressure &&
     a.currency === b.currency
   );
 }
@@ -90,7 +98,7 @@ function isDimless(d: Dim): boolean {
 }
 
 function dimKey(d: Dim): string {
-  return `${d.data},${d.time},${d.energy},${d.length},${d.mass},${d.currency}`;
+  return `${d.data},${d.time},${d.energy},${d.length},${d.mass},${d.pressure},${d.currency}`;
 }
 
 /** Quantity constructor that keeps the code↔currency-exponent invariant. */
@@ -117,6 +125,10 @@ const ENERGY = dim({ energy: 1 });
 const POWER = dim({ energy: 1, time: -1 });
 const LENGTH = dim({ length: 1 });
 const MASS = dim({ mass: 1 });
+const PRESSURE = dim({ pressure: 1 });
+// Volume is length³, so `L / m` and friends cancel dimensionally.
+const VOLUME = dim({ length: 3 });
+const SPEED = dim({ length: 1, time: -1 });
 const FREQUENCY = dim({ time: -1 });
 const MONEY = dim({ currency: 1 });
 
@@ -183,9 +195,38 @@ const UNITS: Record<string, UnitSpec> = {
   cm: { factor: 1e-2, dim: LENGTH },
   m: { factor: 1, dim: LENGTH },
   km: { factor: 1e3, dim: LENGTH },
+  // Imperial length. `inch` is spelled out because `in` is the conversion
+  // keyword (`8MB in KiB`) and must not attach to numbers as a unit.
+  inch: { factor: 0.0254, dim: LENGTH },
+  ft: { factor: 0.3048, dim: LENGTH },
+  yd: { factor: 0.9144, dim: LENGTH },
+  mi: { factor: 1609.344, dim: LENGTH },
   mg: { factor: 1e-3, dim: MASS },
   g: { factor: 1, dim: MASS },
   kg: { factor: 1e3, dim: MASS },
+  t: { factor: 1e6, dim: MASS },
+  oz: { factor: 28.349523125, dim: MASS },
+  lb: { factor: 453.59237, dim: MASS },
+  lbs: { factor: 453.59237, dim: MASS },
+  // Pressure has its own base dimension (base unit Pa), like energy — the
+  // dimension vector is bespoke, not SI-derived.
+  Pa: { factor: 1, dim: PRESSURE },
+  hPa: { factor: 100, dim: PRESSURE },
+  kPa: { factor: 1e3, dim: PRESSURE },
+  MPa: { factor: 1e6, dim: PRESSURE },
+  mbar: { factor: 100, dim: PRESSURE },
+  bar: { factor: 1e5, dim: PRESSURE },
+  psi: { factor: 6894.757293168, dim: PRESSURE },
+  atm: { factor: 101325, dim: PRESSURE },
+  // Volume in base m³. No lowercase `l` (reads like the digit 1).
+  mL: { factor: 1e-6, dim: VOLUME },
+  cL: { factor: 1e-5, dim: VOLUME },
+  dL: { factor: 1e-4, dim: VOLUME },
+  L: { factor: 1e-3, dim: VOLUME },
+  gal: { factor: 3.785411784e-3, dim: VOLUME },
+  // km/h needs no entry — `60 km/h` already parses as a rate.
+  mph: { factor: 0.44704, dim: SPEED },
+  kn: { factor: 1852 / 3600, dim: SPEED },
   Hz: { factor: 1, dim: FREQUENCY },
   kHz: { factor: 1e3, dim: FREQUENCY },
   MHz: { factor: 1e6, dim: FREQUENCY },
@@ -202,7 +243,11 @@ const DISPLAY_FAMILIES = new Map<string, Array<[label: string, factor: number]>>
   [dimKey(ENERGY), [['J', 1], ['kJ', 1e3], ['MJ', 1e6], ['GJ', 1e9]]],
   [dimKey(POWER), [['mW', 1e-3], ['W', 1], ['kW', 1e3], ['MW', 1e6], ['GW', 1e9]]],
   [dimKey(LENGTH), [['mm', 1e-3], ['m', 1], ['km', 1e3]]],
-  [dimKey(MASS), [['mg', 1e-3], ['g', 1], ['kg', 1e3]]],
+  [dimKey(MASS), [['mg', 1e-3], ['g', 1], ['kg', 1e3], ['t', 1e6]]],
+  // Auto-display stays metric; imperial units render only via explicit
+  // `in`/`to` conversions.
+  [dimKey(PRESSURE), [['Pa', 1], ['kPa', 1e3], ['bar', 1e5]]],
+  [dimKey(VOLUME), [['mL', 1e-6], ['L', 1e-3], ['m³', 1]]],
   [dimKey(FREQUENCY), [['Hz', 1], ['kHz', 1e3], ['MHz', 1e6], ['GHz', 1e9]]],
   [dimKey(dim({ data: 1, time: -1 })), [['B/s', 1], ['kB/s', 1e3], ['MB/s', 1e6], ['GB/s', 1e9], ['TB/s', 1e12]]],
   [dimKey(dim({ length: 1, time: -1 })), [['m/s', 1]]],
@@ -409,7 +454,7 @@ type IdentToken = Extract<Token, { type: 'ident' }>;
 /**
  * Recursive-descent parser over a token slice. Grammar (precedence low→high):
  *
- *   top            := additive ("in" (unit | "hex" | "bin"))?
+ *   top            := additive (("in" | "to") (unit | "hex" | "bin"))?
  *   additive       := multiplicative (("+"|"-") multiplicative)*   left-assoc
  *   multiplicative := unary (("*"|"/") unary)*                     left-assoc
  *   unary          := ("-"|"+") unary | power
@@ -448,7 +493,7 @@ class Parser {
     const node = this.parseAdditive();
     let conversion: Conversion | null = null;
     const next = this.peek();
-    if (next?.type === 'ident' && next.name === 'in') {
+    if (next?.type === 'ident' && (next.name === 'in' || next.name === 'to')) {
       this.pos++;
       conversion = this.parseConversionTarget();
     }

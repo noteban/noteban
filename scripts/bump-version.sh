@@ -75,6 +75,11 @@ echo -n "Updating src-tauri/tauri.conf.json... "
 sed_inplace "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/" "$PROJECT_ROOT/src-tauri/tauri.conf.json"
 echo -e "${GREEN}done${NC}"
 
+# Update iOS Info.plist (CFBundleShortVersionString and CFBundleVersion)
+echo -n "Updating src-tauri/gen/apple/noteban_iOS/Info.plist... "
+sed_inplace "s|<string>$CURRENT_VERSION</string>|<string>$VERSION</string>|" "$PROJECT_ROOT/src-tauri/gen/apple/noteban_iOS/Info.plist"
+echo -e "${GREEN}done${NC}"
+
 # Sync package-lock.json
 echo -n "Syncing package-lock.json... "
 cd "$PROJECT_ROOT"
@@ -108,7 +113,7 @@ echo -e "${YELLOW}Creating release branch and PR...${NC}"
 git checkout -b "$BRANCH_NAME"
 
 # Stage and commit changes
-git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json aur/PKGBUILD
+git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json src-tauri/gen/apple/noteban_iOS/Info.plist aur/PKGBUILD
 git commit -m "Bump version to $VERSION"
 
 # Push branch to remote

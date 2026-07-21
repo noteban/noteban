@@ -369,6 +369,60 @@ describe('units', () => {
   });
 });
 
+describe('unit conversions', () => {
+  it('converts pressure units', () => {
+    expect(analyzeLine('100 psi in bar =')?.resultText).toBe('6.89475729317 bar');
+    expect(analyzeLine('1 atm in Pa =')?.resultText).toBe('101 325 Pa');
+    expect(analyzeLine('1 atm to psi =')?.resultText).toBe('14.6959487755 psi');
+    expect(analyzeLine('500 mbar in kPa =')?.resultText).toBe('50 kPa');
+  });
+
+  it('auto-scales pressure display', () => {
+    expect(analyzeLine('2 bar =')?.resultText).toBe('2 bar');
+    expect(analyzeLine('100 kPa + 900 hPa =')?.resultText).toBe('1.9 bar');
+    expect(analyzeLine('300 Pa =')?.resultText).toBe('300 Pa');
+  });
+
+  it('accepts to as a conversion keyword', () => {
+    expect(analyzeLine('100 psi to bar =')?.resultText).toBe(
+      analyzeLine('100 psi in bar =')?.resultText
+    );
+    expect(analyzeLine('8MB to KiB =')?.resultText).toBe('7 812.5 KiB');
+    expect(analyzeLine('255 to hex =')?.resultText).toBe('0xFF');
+  });
+
+  it('converts imperial length', () => {
+    expect(analyzeLine('10 inch in cm =')?.resultText).toBe('25.4 cm');
+    expect(analyzeLine('1 mi in km =')?.resultText).toBe('1.609344 km');
+    expect(analyzeLine('100 yd in m =')?.resultText).toBe('91.44 m');
+    expect(analyzeLine('6 ft + 6 inch =')?.resultText).toBe('1.9812 m');
+  });
+
+  it('converts mass units', () => {
+    expect(analyzeLine('1 lb in g =')?.resultText).toBe('453.59237 g');
+    expect(analyzeLine('16 oz in lb =')?.resultText).toBe('1 lb');
+    expect(analyzeLine('2 t in kg =')?.resultText).toBe('2 000 kg');
+    expect(analyzeLine('1500 kg =')?.resultText).toBe('1.5 t');
+  });
+
+  it('converts volume units', () => {
+    expect(analyzeLine('2 L + 500 mL =')?.resultText).toBe('2.5 L');
+    expect(analyzeLine('1 gal in L =')?.resultText).toBe('3.785411784 L');
+    expect(analyzeLine('1000 L =')?.resultText).toBe('1 m³');
+  });
+
+  it('converts speed units', () => {
+    expect(analyzeLine('60 mph in km/h =')?.resultText).toBe('96.56064 km/h');
+    expect(analyzeLine('10 kn in km/h =')?.resultText).toBe('18.52 km/h');
+  });
+
+  it('silently rejects cross-dimension conversions', () => {
+    expect(analyzeLine('1 psi + 1 m =')).toBeNull();
+    expect(analyzeLine('2 bar in kg =')).toBeNull();
+    expect(analyzeLine('5 in cm =')).toBeNull();
+  });
+});
+
 describe('currency', () => {
   it('renders money with the marker as typed', () => {
     expect(analyzeLine('320 USD =')?.resultText).toBe('320 USD');

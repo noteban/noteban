@@ -75,6 +75,23 @@ echo -n "Updating src-tauri/tauri.conf.json... "
 sed_inplace "s/\"version\": \"$CURRENT_VERSION\"/\"version\": \"$VERSION\"/" "$PROJECT_ROOT/src-tauri/tauri.conf.json"
 echo -e "${GREEN}done${NC}"
 
+# Update the iOS version sources. Both keys are targeted by name (the line
+# after each <key>/mapping key) rather than by current value, so a diverged
+# CFBundleVersion still gets rewritten and unrelated strings never match.
+# project.yml is the XcodeGen source — regenerating the Apple project would
+# otherwise restore whatever stale versions it holds.
+echo -n "Updating src-tauri/gen/apple/noteban_iOS/Info.plist... "
+IOS_PLIST="$PROJECT_ROOT/src-tauri/gen/apple/noteban_iOS/Info.plist"
+sed_inplace "/<key>CFBundleShortVersionString<\/key>/{n;s|<string>.*</string>|<string>$VERSION</string>|;}" "$IOS_PLIST"
+sed_inplace "/<key>CFBundleVersion<\/key>/{n;s|<string>.*</string>|<string>$VERSION</string>|;}" "$IOS_PLIST"
+echo -e "${GREEN}done${NC}"
+
+echo -n "Updating src-tauri/gen/apple/project.yml... "
+IOS_PROJECT_YML="$PROJECT_ROOT/src-tauri/gen/apple/project.yml"
+sed_inplace "s/^\([[:space:]]*CFBundleShortVersionString:\).*/\1 $VERSION/" "$IOS_PROJECT_YML"
+sed_inplace "s/^\([[:space:]]*CFBundleVersion:\).*/\1 \"$VERSION\"/" "$IOS_PROJECT_YML"
+echo -e "${GREEN}done${NC}"
+
 # Sync package-lock.json
 echo -n "Syncing package-lock.json... "
 cd "$PROJECT_ROOT"
@@ -108,7 +125,7 @@ echo -e "${YELLOW}Creating release branch and PR...${NC}"
 git checkout -b "$BRANCH_NAME"
 
 # Stage and commit changes
-git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json aur/PKGBUILD
+git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/Cargo.lock src-tauri/tauri.conf.json src-tauri/gen/apple/noteban_iOS/Info.plist src-tauri/gen/apple/project.yml aur/PKGBUILD
 git commit -m "Bump version to $VERSION"
 
 # Push branch to remote

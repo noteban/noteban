@@ -51,8 +51,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 3.5.2
-        CFBundleVersion: "3.5.2"
+        CFBundleShortVersionString: 4.1.0
+        CFBundleVersion: "4.1.0"
     entitlements:
       path: noteban_iOS/noteban_iOS.entitlements
     scheme:

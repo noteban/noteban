@@ -423,6 +423,48 @@ describe('unit conversions', () => {
   });
 });
 
+describe('temperature', () => {
+  it('converts between scales affinely', () => {
+    expect(analyzeLine('20 C in F =')?.resultText).toBe('68 °F');
+    expect(analyzeLine('100 C to F =')?.resultText).toBe('212 °F');
+    expect(analyzeLine('98.6 F in C =')?.resultText).toBe('37 °C');
+    expect(analyzeLine('0 C in K =')?.resultText).toBe('273.15 K');
+    expect(analyzeLine('300 K to C =')?.resultText).toBe('26.85 °C');
+  });
+
+  it('handles negative temperatures', () => {
+    expect(analyzeLine('-40 C in F =')?.resultText).toBe('-40 °F');
+  });
+
+  it('accepts degree-sign and deg spellings', () => {
+    expect(analyzeLine('20°C in °F =')?.resultText).toBe('68 °F');
+    expect(analyzeLine('72 degF in degC =')?.resultText).toBe('22.2222222222 °C');
+  });
+
+  it('keeps values in the scale as typed', () => {
+    expect(analyzeLine('20 C =')?.resultText).toBe('20 °C');
+    expect(analyzeLine('20 C + 5 C =')?.resultText).toBe('25 °C');
+    expect(analyzeLine('(20 C + 30 C) / 2 =')?.resultText).toBe('25 °C');
+    expect(analyzeLine('20 C + 10% =')?.resultText).toBe('22 °C');
+  });
+
+  it('flows through variables', () => {
+    expect(analyzeLine('T in F =', ['T = 20 C'])?.resultText).toBe('68 °F');
+  });
+
+  it('silently rejects mixed scales and cross-dimension use', () => {
+    expect(analyzeLine('20 C + 10 F =')).toBeNull();
+    expect(analyzeLine('20 C + 5 =')).toBeNull();
+    expect(analyzeLine('20 C in kg =')).toBeNull();
+    expect(analyzeLine('20 in C =')).toBeNull();
+  });
+
+  it('keeps glued 8K as a scale suffix while spaced 8 K is kelvin', () => {
+    expect(analyzeLine('8K =')?.resultText).toBe('8 000');
+    expect(analyzeLine('8 K =')?.resultText).toBe('8 K');
+  });
+});
+
 describe('currency', () => {
   it('renders money with the marker as typed', () => {
     expect(analyzeLine('320 USD =')?.resultText).toBe('320 USD');

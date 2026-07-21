@@ -14,9 +14,12 @@
 // degrees), and the constants pi and e (shadowable by user definitions).
 //
 // Unit coverage spans data, time, energy/power, pressure, length (metric and
-// imperial), mass, volume, frequency, speed, and currencies. Temperature is
-// deliberately absent: °C/°F conversions are affine (offset, not factor) and
-// don't fit the multiplicative quantity model.
+// imperial), mass, volume, frequency, speed, currencies, and temperature.
+// Temperature can't use the multiplicative factor model (°C/°F are affine),
+// so it follows the currency pattern instead: values stay in the scale as
+// typed (`20 C` is the number 20 tagged °C, not kelvin), same-scale
+// arithmetic is naive (`20 C + 5 C` is 25 °C), mixing scales is a silent
+// error, and `in`/`to` converts affinely (`20 C in F =` shows `68 °F`).
 //
 // Pure module: no CodeMirror, DOM, or Tauri imports. The editor integration
 // lives in src/components/editor/mathPlugin.ts.
@@ -35,7 +38,8 @@ export interface MathLineResult {
   nameSpan?: MathSpan;
   /** Spans of variable references in the expression (all resolved, since the line evaluated). */
   refSpans: MathSpan[];
-  /** Computed magnitude in base units (B, s, J, m, g); always finite. */
+  /** Computed magnitude in base units (B, s, J, m, g); temperatures stay in
+   * their typed scale (°C/°F/K). Always finite. */
   value: number;
   /** Formatted result text; present for 'evaluation' and 'definition-evaluation'. */
   resultText?: string;
@@ -52,8 +56,12 @@ interface Dim {
   length: number;
   mass: number;
   pressure: number;
+  temp: number;
   currency: number;
 }
+
+/** Temperature scale tag, currency-style: the value stays in this scale. */
+type TempScale = 'C' | 'F' | 'K';
 
 interface Quantity {
   value: number;
@@ -61,9 +69,12 @@ interface Quantity {
   /** ISO currency code; non-null iff dim.currency ≠ 0. There are no exchange
    * rates — mixing codes is a silent error, same-code ratios cancel. */
   code: string | null;
+  /** Temperature scale; set iff dim.temp ≠ 0. Mixing scales is a silent
+   * error; conversions between scales happen only at `in`/`to` display. */
+  scale?: TempScale;
 }
 
-const DIMLESS: Dim = { data: 0, time: 0, energy: 0, length: 0, mass: 0, pressure: 0, currency: 0 };
+const DIMLESS: Dim = { data: 0, time: 0, energy: 0, length: 0, mass: 0, pressure: 0, temp: 0, currency: 0 };
 
 function dim(partial: Partial<Dim>): Dim {
   return { ...DIMLESS, ...partial };
@@ -77,6 +88,7 @@ function dimCombine(a: Dim, b: Dim, sign: 1 | -1): Dim {
     length: a.length + sign * b.length,
     mass: a.mass + sign * b.mass,
     pressure: a.pressure + sign * b.pressure,
+    temp: a.temp + sign * b.temp,
     currency: a.currency + sign * b.currency,
   };
 }
@@ -89,6 +101,7 @@ function dimEq(a: Dim, b: Dim): boolean {
     a.length === b.length &&
     a.mass === b.mass &&
     a.pressure === b.pressure &&
+    a.temp === b.temp &&
     a.currency === b.currency
   );
 }
@@ -98,16 +111,29 @@ function isDimless(d: Dim): boolean {
 }
 
 function dimKey(d: Dim): string {
-  return `${d.data},${d.time},${d.energy},${d.length},${d.mass},${d.pressure},${d.currency}`;
+  return `${d.data},${d.time},${d.energy},${d.length},${d.mass},${d.pressure},${d.temp},${d.currency}`;
 }
 
-/** Quantity constructor that keeps the code↔currency-exponent invariant. */
-function qty(value: number, dimension: Dim, code: string | null): Quantity {
-  return { value, dim: dimension, code: dimension.currency === 0 ? null : code };
+/** Quantity constructor that keeps the tag↔exponent invariants (currency
+ * code and temperature scale drop when their dimension cancels). */
+function qty(value: number, dimension: Dim, code: string | null, scale?: TempScale): Quantity {
+  return {
+    value,
+    dim: dimension,
+    code: dimension.currency === 0 ? null : code,
+    scale: dimension.temp === 0 ? undefined : scale,
+  };
 }
 
 function unifyCodes(a: string | null, b: string | null): string | null {
   if (a !== null && b !== null && a !== b) throw new MathError('mixed currencies');
+  return a ?? b;
+}
+
+function unifyScales(a?: TempScale, b?: TempScale): TempScale | undefined {
+  if (a !== undefined && b !== undefined && a !== b) {
+    throw new MathError('mixed temperature scales');
+  }
   return a ?? b;
 }
 
@@ -130,7 +156,40 @@ const PRESSURE = dim({ pressure: 1 });
 const VOLUME = dim({ length: 3 });
 const SPEED = dim({ length: 1, time: -1 });
 const FREQUENCY = dim({ time: -1 });
+const TEMP = dim({ temp: 1 });
 const MONEY = dim({ currency: 1 });
+
+// Temperature units are NOT in the UNITS table: °C/°F are affine (offset,
+// not factor), so a temperature is a scale-tagged value like a currency
+// amount. In unit position a temp name wins over a same-named variable,
+// same as ordinary units; on an LHS `C = 5` still defines a variable.
+const TEMP_UNITS: Record<string, TempScale> = {
+  C: 'C',
+  degC: 'C',
+  '°C': 'C',
+  F: 'F',
+  degF: 'F',
+  '°F': 'F',
+  K: 'K',
+};
+
+const TEMP_LABEL: Record<TempScale, string> = { C: '°C', F: '°F', K: 'K' };
+
+function toKelvin(value: number, scale: TempScale): number {
+  if (scale === 'C') return value + 273.15;
+  if (scale === 'F') return (value + 459.67) * (5 / 9);
+  return value;
+}
+
+function fromKelvin(value: number, scale: TempScale): number {
+  if (scale === 'C') return value - 273.15;
+  if (scale === 'F') return value * (9 / 5) - 459.67;
+  return value;
+}
+
+function convertTemp(value: number, from: TempScale, to: TempScale): number {
+  return from === to ? value : fromKelvin(toKelvin(value, from), to);
+}
 
 // Currencies attach after a number like units (`3200 NOK`, `320kr`), as a
 // word prefix (`kr 320`, `USD 100`), or as a symbol prefix (`$320`, `€50`).
@@ -304,8 +363,9 @@ const WORD_MULTIPLIERS: Record<string, number> = {
   trillion: 1e12,
 };
 
-const IDENT_START = /[A-Za-z_]/;
-const IDENT_CHAR = /[A-Za-z0-9_]/;
+// ° is an identifier character so `20°C` lexes as number + ident `°C`.
+const IDENT_START = /[A-Za-z_°]/;
+const IDENT_CHAR = /[A-Za-z0-9_°]/;
 const HEX_RE = /^0[xX][0-9a-fA-F]+/;
 const BIN_RE = /^0[bB][01]+/;
 const DIGIT_RE = /[0-9]/;
@@ -401,7 +461,7 @@ function tokenize(text: string, base: number): Token[] | null {
 
 type AstNode =
   | { kind: 'num'; value: number }
-  | { kind: 'quantity'; value: number; dim: Dim; code: string | null }
+  | { kind: 'quantity'; value: number; dim: Dim; code: string | null; scale?: TempScale }
   | { kind: 'var'; name: string; span: MathSpan }
   | { kind: 'call'; name: string; args: AstNode[] }
   | { kind: 'binary'; op: '+' | '-' | '*' | '/' | '^'; left: AstNode; right: AstNode }
@@ -416,6 +476,7 @@ type AstNode =
 /** Display override requested with `expr in <target>`. */
 type Conversion =
   | { type: 'unit'; text: string; factor: number; dim: Dim; code: string | null }
+  | { type: 'temp'; scale: TempScale }
   | { type: 'radix'; radix: 16 | 2 };
 
 interface FunctionSpec {
@@ -507,6 +568,8 @@ class Parser {
     this.pos++;
     if (token.name === 'hex') return { type: 'radix', radix: 16 };
     if (token.name === 'bin') return { type: 'radix', radix: 2 };
+    const tempScale = TEMP_UNITS[token.name];
+    if (tempScale !== undefined) return { type: 'temp', scale: tempScale };
     const base = this.resolveUnitOrCurrency(token.name);
     if (base === null) throw new MathError(`unknown unit '${token.name}'`);
     const divisor = this.tryParseRateDivisor(token.to);
@@ -668,6 +731,15 @@ class Parser {
         end = wordToken.to;
       }
       const unitToken = this.peek();
+      if (unitToken?.type === 'ident' && unitToken.from - end <= 1) {
+        // Temperature attach: the value keeps its scale as typed. No rate
+        // form — `20 C/s` is left unconsumed and the line silently fails.
+        const tempScale = TEMP_UNITS[unitToken.name];
+        if (tempScale !== undefined) {
+          this.pos++;
+          return { kind: 'quantity', value, dim: TEMP, code: null, scale: tempScale };
+        }
+      }
       const attached =
         unitToken?.type === 'ident' && unitToken.from - end <= 1
           ? this.resolveUnitOrCurrency(unitToken.name)
@@ -742,7 +814,7 @@ function evalNode(node: AstNode, env: ReadonlyMap<string, Quantity>): Quantity {
     case 'num':
       return { value: node.value, dim: DIMLESS, code: null };
     case 'quantity':
-      return { value: node.value, dim: node.dim, code: node.code };
+      return { value: node.value, dim: node.dim, code: node.code, scale: node.scale };
     case 'var': {
       const value = env.get(node.name);
       if (value === undefined) throw new MathError(`undefined variable '${node.name}'`);
@@ -752,7 +824,7 @@ function evalNode(node: AstNode, env: ReadonlyMap<string, Quantity>): Quantity {
       return { value: evalNode(node.operand, env).value / 100, dim: DIMLESS, code: null };
     case 'neg': {
       const operand = evalNode(node.operand, env);
-      return { value: -operand.value, dim: operand.dim, code: operand.code };
+      return { value: -operand.value, dim: operand.dim, code: operand.code, scale: operand.scale };
     }
     case 'group':
       return evalNode(node.operand, env);
@@ -773,7 +845,7 @@ function evalNode(node: AstNode, env: ReadonlyMap<string, Quantity>): Quantity {
       if ((node.op === '+' || node.op === '-') && node.right.kind === 'percent') {
         const fraction = evalNode(node.right, env).value;
         const scaled = node.op === '+' ? 1 + fraction : 1 - fraction;
-        return { value: left.value * scaled, dim: left.dim, code: left.code };
+        return { value: left.value * scaled, dim: left.dim, code: left.code, scale: left.scale };
       }
       const right = evalNode(node.right, env);
       switch (node.op) {
@@ -781,20 +853,23 @@ function evalNode(node: AstNode, env: ReadonlyMap<string, Quantity>): Quantity {
         case '-': {
           if (!dimEq(left.dim, right.dim)) throw new MathError('mismatched units');
           const code = unifyCodes(left.code, right.code);
+          const scale = unifyScales(left.scale, right.scale);
           const value = node.op === '+' ? left.value + right.value : left.value - right.value;
-          return { value, dim: left.dim, code };
+          return { value, dim: left.dim, code, scale };
         }
         case '*':
           return qty(
             left.value * right.value,
             dimCombine(left.dim, right.dim, 1),
-            unifyCodes(left.code, right.code)
+            unifyCodes(left.code, right.code),
+            unifyScales(left.scale, right.scale)
           );
         case '/':
           return qty(
             left.value / right.value,
             dimCombine(left.dim, right.dim, -1),
-            unifyCodes(left.code, right.code)
+            unifyCodes(left.code, right.code),
+            unifyScales(left.scale, right.scale)
           );
         case '^':
           return {
@@ -863,6 +938,11 @@ function formatQuantity(q: Quantity, conversion: Conversion | null): string | nu
     const prefix = conversion.radix === 16 ? '0x' : '0b';
     return `${v < 0 ? '-' : ''}${prefix}${digits}`;
   }
+  if (conversion?.type === 'temp') {
+    if (!dimEq(q.dim, TEMP) || q.scale === undefined) return null;
+    const converted = convertTemp(q.value, q.scale, conversion.scale);
+    return `${formatResult(converted)} ${TEMP_LABEL[conversion.scale]}`;
+  }
   if (conversion?.type === 'unit') {
     if (!dimEq(q.dim, conversion.dim)) return null;
     try {
@@ -873,6 +953,14 @@ function formatQuantity(q: Quantity, conversion: Conversion | null): string | nu
     return `${formatResult(q.value / conversion.factor)} ${conversion.text}`;
   }
   if (isDimless(q.dim)) return formatResult(q.value);
+  if (q.dim.temp !== 0) {
+    // A plain temperature renders in the scale it was typed in; anything
+    // else involving temperature (temp², °C per second) is silent.
+    if (dimEq(q.dim, TEMP) && q.scale !== undefined) {
+      return `${formatResult(q.value)} ${TEMP_LABEL[q.scale]}`;
+    }
+    return null;
+  }
   if (q.dim.currency === 0) {
     const family = DISPLAY_FAMILIES.get(dimKey(q.dim));
     if (family === undefined) return null;

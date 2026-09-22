@@ -5,7 +5,7 @@ import { FolderTree } from './FolderTree';
 import { TagCloud } from './TagCloud';
 import { hasTagFilter } from '../../utils/tagFilterParser';
 import { debugLog } from '../../utils/debugLogger';
-import { isIOS, isMobile } from '../../utils/platform';
+import { isIOS } from '../../utils/platform';
 import './Sidebar.css';
 
 export function Sidebar() {
@@ -35,9 +35,7 @@ export function Sidebar() {
         column: 'todo',
       });
       setActiveNote(note.frontmatter.id);
-      if (isMobile) {
-        setMobileSidebarOpen(false);
-      }
+      setMobileSidebarOpen(false);
     } catch (error) {
       debugLog.error('Failed to create note:', error);
     }

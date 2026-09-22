@@ -8,11 +8,13 @@
 .layout-body {
   display: flex;
   flex: 1;
+  min-height: 0;
   overflow: hidden;
 }
 
 .layout-main {
   flex: 1;
+  min-width: 0;
   overflow: auto;
   background-color: var(--bg-primary);
 }
@@ -61,8 +63,30 @@
 }
 
 .sidebar-container {
+  flex-shrink: 0;
   overflow: hidden;
   transition: width var(--transition-normal);
+}
+
+.header-mode-switcher {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  background: var(--bg-primary);
+}
+
+.header-mode-switcher .ios-mode-pill-btn {
+  min-height: 44px;
+  border-radius: var(--radius-md);
+}
+
+.header-mode-switcher .ios-mode-pill-btn.active {
+  background: var(--bg-tertiary);
+  color: var(--accent);
+  box-shadow: none;
 }
 
 .sidebar-container.collapsed {

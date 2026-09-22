@@ -1,4 +1,5 @@
 .header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -7,6 +8,29 @@
   background-color: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   gap: var(--spacing-md);
+}
+
+.platform-ios .header-menu-btn {
+  display: flex;
+  width: 44px;
+  height: 44px;
+}
+
+.header-menu-btn:hover {
+  background: var(--bg-tertiary);
+}
+
+@media (min-width: 761px) {
+  .platform-ios .header-left,
+  .platform-ios .header-right {
+    min-width: 0;
+    gap: var(--spacing-sm);
+  }
+
+  .platform-ios .header-search {
+    max-width: 640px;
+    min-height: 44px;
+  }
 }
 
 .header-left {

@@ -11,6 +11,7 @@ import { AboutModal } from './AboutModal';
 import { UpdateNotification } from './UpdateNotification';
 import { useUIStore } from '../../stores';
 import { isIOS, isMobile } from '../../utils/platform';
+import { useCompactLayout } from '../../hooks/useCompactLayout';
 import './Layout.css';
 
 const EDGE_SWIPE_START_PX = 28;
@@ -23,6 +24,7 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   const { currentView, setView, sidebarWidth, sidebarCollapsed, mobileSidebarOpen, setMobileSidebarOpen } = useUIStore();
+  const compact = useCompactLayout();
   const showSidebar = currentView !== 'kanban' || isIOS;
   const layoutBodyRef = useRef<HTMLDivElement>(null);
   const sidebarRef = useRef<HTMLDivElement>(null);
@@ -37,7 +39,7 @@ export function Layout({ children }: LayoutProps) {
   const [isEdgeDragging, setIsEdgeDragging] = useState(false);
 
   useEffect(() => {
-    if (!isMobile || !showSidebar) {
+    if (!compact || !showSidebar) {
       return;
     }
 
@@ -137,14 +139,15 @@ export function Layout({ children }: LayoutProps) {
       layoutBody.removeEventListener('touchmove', handleTouchMove);
       layoutBody.removeEventListener('touchend', handleTouchEnd);
       layoutBody.removeEventListener('touchcancel', resetGesture);
+      resetGesture();
     };
-  }, [mobileSidebarOpen, setMobileSidebarOpen, showSidebar]);
+  }, [compact, mobileSidebarOpen, setMobileSidebarOpen, showSidebar]);
 
   const sidebarStyle: CSSProperties = {
-    width: isMobile ? undefined : (sidebarCollapsed ? 0 : sidebarWidth),
+    width: compact ? undefined : (sidebarCollapsed ? 0 : isMobile ? 'clamp(260px, 28vw, 320px)' : sidebarWidth),
   };
 
-  if (isMobile && !mobileSidebarOpen && dragOffset > 0) {
+  if (compact && !mobileSidebarOpen && dragOffset > 0) {
     sidebarStyle.transform = `translateX(calc(-100% + ${dragOffset}px))`;
   }
 
@@ -157,12 +160,33 @@ export function Layout({ children }: LayoutProps) {
     setMobileSidebarOpen(false);
   };
 
+  const modeSwitcher = isIOS && (
+    <nav className={compact ? 'ios-mode-pill' : 'header-mode-switcher'} aria-label="View mode">
+      <button
+        className={`ios-mode-pill-btn ${currentView === 'notes' ? 'active' : ''}`}
+        onClick={() => handleModeChange('notes')}
+        aria-pressed={currentView === 'notes'}
+      >
+        <FileText size={17} />
+        <span>Notes</span>
+      </button>
+      <button
+        className={`ios-mode-pill-btn ${currentView === 'kanban' ? 'active' : ''}`}
+        onClick={() => handleModeChange('kanban')}
+        aria-pressed={currentView === 'kanban'}
+      >
+        <Kanban size={17} />
+        <span>Board</span>
+      </button>
+    </nav>
+  );
+
   return (
-    <div className={`layout ${isIOS ? 'ios-bottom-mode' : ''}`}>
+    <div className={`layout ${isIOS && compact ? 'ios-bottom-mode' : ''}`}>
       <DragBar />
-      <Header />
+      <Header compact={compact} viewSwitcher={!compact ? modeSwitcher : undefined} />
       <div className="layout-body" ref={layoutBodyRef}>
-        {showSidebar && isMobile && (mobileSidebarOpen || isEdgeDragging) && (
+        {showSidebar && compact && (mobileSidebarOpen || isEdgeDragging) && (
           <button
             className={`sidebar-mobile-backdrop ${isEdgeDragging ? 'dragging' : ''}`}
             onClick={() => setMobileSidebarOpen(false)}
@@ -174,40 +198,23 @@ export function Layout({ children }: LayoutProps) {
           <>
             <div
               ref={sidebarRef}
-              className={`sidebar-container ${!isMobile && sidebarCollapsed ? 'collapsed' : ''} ${
-                isMobile && mobileSidebarOpen ? 'mobile-open' : ''
+              id="notes-sidebar"
+              inert={compact ? !mobileSidebarOpen && !isEdgeDragging : sidebarCollapsed}
+              className={`sidebar-container ${!compact && sidebarCollapsed ? 'collapsed' : ''} ${
+                compact && mobileSidebarOpen ? 'mobile-open' : ''
               } ${isEdgeDragging ? 'mobile-dragging' : ''}`}
               style={sidebarStyle}
             >
               <Sidebar />
             </div>
-            {!isMobile && <SidebarResizer />}
+            {!isMobile && !compact && <SidebarResizer />}
           </>
         )}
         <main className="layout-main">
           {children}
         </main>
       </div>
-      {isIOS && (
-        <nav className="ios-mode-pill" aria-label="View mode">
-          <button
-            className={`ios-mode-pill-btn ${currentView === 'notes' ? 'active' : ''}`}
-            onClick={() => handleModeChange('notes')}
-            aria-pressed={currentView === 'notes'}
-          >
-            <FileText size={17} />
-            <span>Notes</span>
-          </button>
-          <button
-            className={`ios-mode-pill-btn ${currentView === 'kanban' ? 'active' : ''}`}
-            onClick={() => handleModeChange('kanban')}
-            aria-pressed={currentView === 'kanban'}
-          >
-            <Kanban size={17} />
-            <span>Board</span>
-          </button>
-        </nav>
-      )}
+      {compact && modeSwitcher}
       <StatusBar />
       <SettingsModal />
       <AboutModal />

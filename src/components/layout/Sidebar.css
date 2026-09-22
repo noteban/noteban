@@ -257,6 +257,40 @@
   color: var(--text-primary);
 }
 
+.platform-ios .sidebar {
+  min-width: 0;
+  border-right: 1px solid var(--border-color);
+}
+
+.platform-ios .sidebar-new-btn,
+.platform-ios .sidebar-folder-btn {
+  min-height: 44px;
+}
+
+.platform-ios .folder-row,
+.platform-ios .folder-note {
+  min-height: 44px;
+  gap: var(--spacing-sm);
+}
+
+.platform-ios .folder-tree {
+  min-height: 0;
+}
+
+.platform-ios .tag-cloud {
+  max-height: 28%;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.platform-ios .tag-cloud-header {
+  min-height: 44px;
+}
+
+.platform-ios .tag-cloud-item {
+  min-height: 36px;
+}
+
 @media (max-width: 760px) {
   .sidebar {
     min-width: 0;

@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
-import { Search, Kanban, FileText, Settings, X, Hash, Info, Minus, Square, Copy, Menu } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { Search, Kanban, FileText, Settings, X, Hash, Info, Minus, Square, Copy, PanelLeft } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { useUIStore, useSettingsStore } from '../../stores';
 import { useTags } from '../../hooks';
@@ -11,7 +12,7 @@ import './Header.css';
 
 const appWindow = getCurrentWindow();
 
-export function Header() {
+export function Header({ compact, viewSwitcher }: { compact: boolean; viewSwitcher?: ReactNode }) {
   const {
     currentView,
     setView,
@@ -20,6 +21,9 @@ export function Header() {
     setShowSettings,
     setShowAbout,
     setMobileSidebarOpen,
+    mobileSidebarOpen,
+    sidebarCollapsed,
+    toggleSidebarCollapsed,
     tagFilter,
     setTagFilter,
     setFilterTag,
@@ -39,6 +43,7 @@ export function Header() {
 
   // Track window maximized state
   useEffect(() => {
+    if (isMobile) return;
     const checkMaximized = async () => {
       setIsMaximized(await appWindow.isMaximized());
     };
@@ -257,13 +262,16 @@ export function Header() {
   return (
     <header className="header" {...(isLinux && !root.useNativeDecorations && { 'data-tauri-drag-region': true })}>
       <div className="header-left">
-        {isMobile && (currentView === 'notes' || isIOS) && (
+        {(isMobile || compact) && (currentView === 'notes' || isIOS) && (
           <button
             className="header-menu-btn"
-            onClick={() => setMobileSidebarOpen(true)}
-            title="Menu"
+            onClick={() => compact ? setMobileSidebarOpen(!mobileSidebarOpen) : toggleSidebarCollapsed()}
+            title="Toggle notes sidebar"
+            aria-label="Toggle notes sidebar"
+            aria-controls="notes-sidebar"
+            aria-expanded={compact ? mobileSidebarOpen : !sidebarCollapsed}
           >
-            <Menu size={20} />
+            <PanelLeft size={20} />
           </button>
         )}
         <h1 className="header-logo">Notes</h1>
@@ -351,6 +359,7 @@ export function Header() {
       </div>
 
       <div className="header-right">
+        {viewSwitcher}
         {!isIOS && <ProfileSwitcher />}
         {!isIOS && (
           <>

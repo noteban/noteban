@@ -46,3 +46,7 @@ tokio = { version = "1", features = ["sync"] }
 
 [target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
 tauri-plugin-updater = "2"
+
+[patch.crates-io]
+# Includes the scene-lifecycle fixes needed for a single-window iPadOS 27 app.
+tao = { path = "vendor/tao" }

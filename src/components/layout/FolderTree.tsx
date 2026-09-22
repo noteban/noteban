@@ -202,9 +202,7 @@ function FolderNode({ folder, depth, notesDir }: FolderNodeProps) {
 
   const handleNoteClick = (note: Note) => {
     setActiveNote(note.frontmatter.id);
-    if (isMobile) {
-      setMobileSidebarOpen(false);
-    }
+    setMobileSidebarOpen(false);
   };
 
   const handleNoteContextMenu = (e: React.MouseEvent, note: Note) => {

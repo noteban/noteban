@@ -108,6 +108,12 @@ html.platform-ios {
   --app-statusbar-height: calc(24px + var(--safe-area-inset-bottom));
 }
 
+@media (min-width: 761px) {
+  html.platform-ios {
+    --app-header-height: calc(64px + var(--safe-area-inset-top));
+  }
+}
+
 * {
   margin: 0;
   padding: 0;

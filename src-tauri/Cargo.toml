@@ -6,7 +6,7 @@ authors = ["you"]
 license = "MIT"
 repository = "https://github.com/noteban/noteban"
 edition = "2021"
-rust-version = "1.77.2"
+rust-version = "1.88"
 
 [lib]
 name = "noteban_lib"
@@ -45,7 +45,7 @@ rustls = { version = "0.23.38", default-features = false, features = ["ring"] }
 tokio = { version = "1", features = ["sync"] }
 
 [target.'cfg(not(any(target_os = "ios", target_os = "android")))'.dependencies]
-tauri-plugin-updater = "2"
+tauri-plugin-updater = "~2.11"
 
 [patch.crates-io]
 # Includes the scene-lifecycle fixes needed for a single-window iPadOS 27 app.

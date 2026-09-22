@@ -48,5 +48,5 @@ tokio = { version = "1", features = ["sync"] }
 tauri-plugin-updater = "2"
 
 [patch.crates-io]
-# Keep UISceneConfiguration alive until UIKit retains it (tao#1245).
-tao = { git = "https://github.com/tauri-apps/tao", rev = "c84a010d546c7fdf716bb6be97cc2038bdc62070" }
+# Includes the scene-lifecycle fixes needed for a single-window iPadOS 27 app.
+tao = { path = "vendor/tao" }
